@@ -1,0 +1,26 @@
+@startuml activity-collision
+skinparam defaultFontName "Noto Sans CJK SC"
+title 活动图2：单帧碰撞与击毁结算（含循环回边）
+start
+:收集本帧全部"子弹-敌机"碰撞对;
+if (存在碰撞对？) then (否)
+  :跳过击毁结算，直接进入玩家受击判定;
+  stop
+else (是)
+endif
+repeat
+  :取出下一对碰撞;
+  :对应敌机扣减伤害、销毁该子弹;
+  if (敌机血量归零？) then (是)
+    :销毁该敌机;
+    :按敌机类型累加得分（F08）;
+    if (掉落判定命中（20%）？) then (是)
+      :在该位置生成一个随机道具（F10）;
+    else (否)
+    endif
+  else (否，敌机存活)
+  endif
+repeat while (还有未处理的碰撞对？) is (是，回边处理下一对) not (否)
+:进入玩家受击与血量结算（F07）;
+stop
+@enduml

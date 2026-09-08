@@ -1,0 +1,24 @@
+@startuml activity-battle-loop
+skinparam defaultFontName "Noto Sans CJK SC"
+title 活动图1：一局战斗生命周期
+start
+:开始游戏，初始化战场（F01）\n分数归零、玩家满血、清空场上实体;
+repeat
+  if (玩家按 P 键？) then (是)
+    :暂停，冻结敌机/子弹/道具运动与计分（F12）;
+    :等待玩家再次按 P 恢复;
+  else (否)
+  endif
+  :系统定时器推进一帧（F03/F04/F05）\n生成敌机、敌机移动射击、双方子弹飞行;
+  if (玩家子弹命中敌机？) then (是)
+    :敌机扣血；血量归零则销毁、计分（F08）\n并按 20% 概率掉落道具（F10）;
+  else (否)
+  endif
+  if (玩家被敌弹命中或与敌机碰撞？) then (是)
+    :玩家扣血，或由护盾抵消一次（F07）\n受击后进入 1 秒无敌;
+  else (否)
+  endif
+repeat while (玩家血量归零？) is (否，回到帧循环) not (是)
+:游戏结束（F09）\n冻结画面、显示本局得分、更新最高分（F13）;
+stop
+@enduml
