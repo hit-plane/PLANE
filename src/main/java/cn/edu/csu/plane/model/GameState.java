@@ -1,8 +1,5 @@
 package cn.edu.csu.plane.model;
 
-/**
- * 游戏整体状态：当前状态流转、得分、等级、关卡进度与对局时长。
- */
 public class GameState {
 
     private GameStatus status;
@@ -12,10 +9,21 @@ public class GameState {
 
     public GameState() {
         this.status = GameStatus.MENU;
+        this.score = 0;
+        this.level = 1;
+        this.elapsedTime = 0;
+    }
+
+    public void resetScore() {
+        this.score = 0;
+        this.level = 1;
     }
 
     public void addScore(int score) {
-        // TODO: 累加得分并触发关卡判定
+        this.score += score;
+        if (this.score >= level * 200) {
+            level++;
+        }
     }
 
     public GameStatus getStatus() { return status; }

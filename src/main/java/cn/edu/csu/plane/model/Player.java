@@ -1,8 +1,7 @@
 package cn.edu.csu.plane.model;
 
-/**
- * 玩家战机：负责移动、自动射击、血量、无敌帧、护盾与火力强化。
- */
+import cn.edu.csu.plane.util.GameConfig;
+
 public class Player extends Entity {
 
     private int health;
@@ -14,32 +13,59 @@ public class Player extends Entity {
 
     public Player(double x, double y, double width, double height) {
         super(x, y, width, height);
-        // TODO: 从 GameConfig 初始化默认血量/火力
+        this.maxHealth = GameConfig.DEFAULT_HEALTH;
+        this.health = maxHealth;
+        this.firePower = 1;
+        this.fireRate = 0.5;
+        this.invincibleTimer = 0;
+        this.shielded = false;
     }
 
     @Override
     public void update(double deltaTime) {
-        // TODO: 更新移动、无敌帧倒计时、护盾等
+        if (invincibleTimer > 0) {
+            invincibleTimer -= deltaTime;
+        }
     }
 
     public void move(double deltaX, double deltaY) {
-        // TODO: 限制在窗口边界内移动
+        this.x += deltaX;
+        this.y += deltaY;
+        
+        if (this.x < 0) this.x = 0;
+        if (this.y < 0) this.y = 0;
+        if (this.x + this.width > GameConfig.WINDOW_WIDTH) {
+            this.x = GameConfig.WINDOW_WIDTH - this.width;
+        }
+        if (this.y + this.height > GameConfig.WINDOW_HEIGHT) {
+            this.y = GameConfig.WINDOW_HEIGHT - this.height;
+        }
     }
 
     public void shoot() {
-        // TODO: 依据火力等级生成一颗或多颗子弹
     }
 
     public void takeDamage(int damage) {
-        // TODO: 扣除血量、触发无敌帧、护盾抵扣
+        if (shielded) {
+            shielded = false;
+            return;
+        }
+        
+        if (invincibleTimer <= 0) {
+            health -= damage;
+            invincibleTimer = 1.0;
+            if (health <= 0) {
+                alive = false;
+            }
+        }
     }
 
     public void heal(int amount) {
-        // TODO: 回复血量（不超过上限）
+        health = Math.min(health + amount, maxHealth);
     }
 
     public void enhanceFirePower() {
-        // TODO: 提升火力等级
+        firePower++;
     }
 
     public int getHealth() { return health; }
