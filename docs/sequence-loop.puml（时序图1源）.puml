@@ -1,0 +1,49 @@
+@startuml sequence-loop
+skinparam defaultFontName "Noto Sans CJK SC"
+skinparam sequenceMessageAlign center
+title 时序图1：一局游戏主循环（MVC 交互）
+
+actor "玩家" as User
+participant "系统定时器" as Timer
+participant "主控制器\nGameController" as GC
+participant "输入处理器\nInputHandler" as IH
+participant "玩家战机\nPlayer" as P
+participant "敌机生成器\nSpawnManager" as SM
+participant "碰撞检测器\nCollisionManager" as CM
+participant "游戏状态\nGameState" as GS
+participant "游戏视图\nGameView" as GV
+
+User -> GC : 开始游戏（F01）
+GC -> GS : 分数归零、血量回满、清空场上实体
+GC -> P : 玩家位于战场底部中央
+
+loop 每帧（约 16.7ms，NF-01）
+  Timer -> GC : update(deltaTime)
+  GC -> IH : 读取输入
+  IH --> GC : moveX / moveY
+  GC -> P : move(dx, dy)（限制不越界 F02/F14）
+  GC -> P : shoot()（按射击间隔自动发射 F03）
+  GC -> SM : update(deltaTime, level)
+  SM --> GC : 生成敌机列表（F04）
+  GC -> CM : resolve(player, enemies, bullets, items)
+  CM -> CM : 子弹-敌机 / 敌弹-玩家 / 机体 / 道具 结算（F06/F07/F10）
+  CM -> GS : addScore(score)（F08）
+  CM -> SM : createItem()（20% 掉落 F10）
+  GS -> GS : 检查血量是否归零
+  alt 玩家血量归零
+    GS --> GC : setStatus(GAME_OVER)
+    GC -> GV : render() + 结束画面（F09）
+    GC -> GS : 写回最高分（F13）
+    break 结束本局
+    end
+  else 正常
+    GC -> GV : render(player, enemies, bullets, items)
+    GV -> GV : drawHUD(score, health, firePower)（HUD）
+  end
+end
+
+note right of GC
+  Update 阶段：驱动模型 + 各控制子系统；
+  Render 阶段：调用 GameView 渲染画面。
+end
+@enduml

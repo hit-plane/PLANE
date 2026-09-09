@@ -1,0 +1,57 @@
+@startuml dataflow
+skinparam defaultFontName "Noto Sans CJK SC"
+skinparam packageStyle rectangle
+title 数据流图（DFD Level 1）：飞机大战 —— 进程 / 数据存储 / 数据流
+
+rectangle "玩家" as User
+rectangle "系统定时器" as Timer
+
+circle "P1\n输入处理" as P1
+circle "P2\n实体更新\n(玩家/敌机/子弹/道具\n移动与越界销毁)" as P2
+circle "P3\n碰撞检测与结算\n(击毁/受击/拾取)" as P3
+circle "P4\n计分" as P4
+circle "P5\n道具掉落与拾取" as P5
+circle "P6\n难度/关卡推进" as P6
+circle "P7\n状态管理与结束判定" as P7
+circle "P8\n渲染(HUD/画面)" as P8
+
+database "D1\n游戏状态\n(分数/血量/关卡)" as DS1
+database "D2\n最高分存档" as DS2
+database "D3\n配置文件\nconfig.properties" as DS3
+
+' ===== 外部实体 - 进程 =====
+User --> P1 : 按键/鼠标移动、P 暂停、开始/重开(F01/F02/F12)
+DS2 --> User : 读取历史最高分(菜单/F13)
+DS3 --> User : 难度设置(菜单)
+
+' ===== 系统定时器 - 进程 =====
+Timer --> P2 : tick / deltaTime
+
+' ===== 进程间数据流 =====
+P1 --> P2 : moveX / moveY、射击标记(F02/F03)
+P2 --> P3 : 实体集合(玩家/敌机/子弹/道具)
+P3 --> P2 : 更新后的实体集合
+P3 --> P4 : 击毁类型(F06)
+P3 --> P5 : 掉落判定命中(20%)
+P3 --> P7 : 玩家受击/扣血(F07)
+P5 --> P2 : 生成道具并加入战场(F10)
+P6 --> P2 : 难度参数(生成间隔/下压速度)(F11)
+P7 --> P2 : 冻结/恢复指令(F12)
+P7 --> P8 : 状态(PLAYING / GAME_OVER)
+
+' ===== 进程 - 数据存储 =====
+P2 --> DS1 : 更新血量/位置/火力
+P3 --> DS1 : 击毁信息/玩家血量
+P4 --> DS1 : 累加得分(F08)
+P5 --> DS1 : 道具增益/剩余存活时间(F10)
+P6 --> DS1 : 难度/关卡增量(F11)
+DS1 --> P7 : 血量/分数/关卡
+DS3 --> P2 : 血量/伤害/掉落概率/帧参数(NF-04)
+DS3 --> P6 : 生成间隔/递增幅度(F11)
+DS1 --> P8 : 得分/血量/火力(HUD)
+P7 --> DS2 : 写回最高分(F13)
+
+' ===== 数据存储 - 数据存储 =====
+DS1 --> DS2 : 本局最高分比较后取较大值写回(F13)
+
+@enduml

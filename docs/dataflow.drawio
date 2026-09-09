@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" agent="DeepSeek Harness" version="24.7.17" type="device">
+  <diagram id="plane-war-dfd" name="数据流图 DFD Level 1">
+    <mxGraphModel dx="2800" dy="1420" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2800" pageHeight="1420" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="数据流图（DFD Level 1）：飞机大战 —— 进程 / 数据存储 / 数据流" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="0" y="44" width="2800" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="玩家" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#999999;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="100" y="520" width="140" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="timer" value="系统定时器" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#f8f9fa;strokeColor=#999999;fontSize=13" vertex="1" parent="1">
+          <mxGeometry x="800" y="140" width="170" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="p1" value="P1&lt;br&gt;输入处理" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="560" y="520" width="160" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p2" value="P2&lt;br&gt;实体更新&lt;br&gt;(玩家/敌机/子弹/道具&lt;br&gt;移动与越界销毁)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="920" y="430" width="300" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="p3" value="P3&lt;br&gt;碰撞检测与结算&lt;br&gt;(击毁/受击/拾取)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="1520" y="430" width="250" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="p4" value="P4&lt;br&gt;计分" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="1600" y="760" width="150" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="p5" value="P5&lt;br&gt;道具掉落与拾取" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="2100" y="510" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="p6" value="P6&lt;br&gt;难度/关卡推进" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="920" y="760" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="p7" value="P7&lt;br&gt;状态管理与结束判定" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="2000" y="760" width="240" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="p8" value="P8&lt;br&gt;渲染(HUD/画面)" style="ellipse;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="2450" y="800" width="210" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ds1" value="D1&lt;br&gt;游戏状态&lt;br&gt;(分数/血量/关卡)" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="1520" y="1040" width="250" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="ds2" value="D2&lt;br&gt;最高分存档" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="100" y="1120" width="190" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="ds3" value="D3&lt;br&gt;配置文件&lt;br&gt;config.properties" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;size=12;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12.5" vertex="1" parent="1">
+          <mxGeometry x="560" y="900" width="240" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="f01" value="按键/鼠标移动、P 暂停、开始/重&lt;br&gt;开(F01/F02/F12)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="user" target="p1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-23.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f13a" value="读取历史最高分(菜单/F13)" style="edgeStyle=none;rounded=0;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.35;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds2" target="user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f00" value="难度设置(菜单)" style="edgeStyle=none;rounded=0;html=1;exitX=0.2;exitY=0;exitDx=0;exitDy=0;entryX=0.75;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds3" target="user">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f04" value="tick / deltaTime" style="edgeStyle=none;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="timer" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f02" value="moveX / moveY、射击标记(F02/&lt;br&gt;F03)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.4;exitDx=0;exitDy=0;entryX=0;entryY=0.6;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p1" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-23.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f05" value="实体集合(玩家/敌机/子弹/道具)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.25;exitDx=0;exitDy=0;entryX=0;entryY=0.3;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p2" target="p3">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f05b" value="更新后的实体集合" style="edgeStyle=none;rounded=0;html=1;exitX=0;exitY=0.6;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p3" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f06" value="击毁类型(F06)" style="edgeStyle=none;rounded=0;html=1;exitX=0.7;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p3" target="p4">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f09" value="掉落判定命中(20%)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p3" target="p5">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f07" value="玩家受击/扣血(F07)" style="edgeStyle=none;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.4;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p3" target="p7">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f10" value="生成道具并加入战场(F10)" style="edgeStyle=none;rounded=0;html=1;exitX=0.05;exitY=0.9;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p5" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f11a" value="难度参数(生成间隔/下压速度)(F&lt;br&gt;11)" style="edgeStyle=none;rounded=0;html=1;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p6" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-23.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f12a" value="冻结/恢复指令(F12)" style="edgeStyle=none;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.9;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p7" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f12b" value="状态(PLAYING / GAME_OVER)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p7" target="p8">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f03" value="更新血量/位置/火力" style="edgeStyle=none;rounded=0;html=1;exitX=0.55;exitY=1;exitDx=0;exitDy=0;entryX=0.3;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p2" target="ds1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f07b" value="击毁信息/玩家血量" style="edgeStyle=none;rounded=0;html=1;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.2;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p3" target="ds1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-71.4" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f08" value="累加得分(F08)" style="edgeStyle=none;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.4;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p4" target="ds1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f10b" value="道具增益/剩余存活时间(F10)" style="edgeStyle=none;rounded=0;html=1;exitX=0;exitY=0.75;exitDx=0;exitDy=0;entryX=0.9;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p5" target="ds1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="-14.2" y="2.6" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f11b" value="难度/关卡增量(F11)" style="edgeStyle=none;rounded=0;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.15;entryY=0;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p6" target="ds1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f12c" value="血量/分数/关卡" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=0.1;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds1" target="p7">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="nf04" value="血量/伤害/掉落概率/帧参数(NF-04)" style="edgeStyle=none;rounded=0;html=1;exitX=0.9;exitY=0;exitDx=0;exitDy=0;entryX=0.1;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds3" target="p2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f11c" value="生成间隔/递增幅度(F11)" style="edgeStyle=none;rounded=0;html=1;exitX=0.35;exitY=0;exitDx=0;exitDy=0;entryX=0.1;entryY=1;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds3" target="p6">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f13b" value="得分/血量/火力(HUD)" style="edgeStyle=none;rounded=0;html=1;exitX=1;exitY=0.6;exitDx=0;exitDy=0;entryX=0;entryY=0.6;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds1" target="p8">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f13c" value="写回最高分(F13)" style="edgeStyle=none;rounded=0;html=1;exitX=0.1;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="p7" target="ds2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-15.0" as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="f13d" value="本局最高分比较后取较大值写回(F&lt;br&gt;13)" style="edgeStyle=none;rounded=0;html=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.6;entryDx=0;entryDy=0;endArrow=open;endFill=0;strokeColor=#333333;" edge="1" parent="1" source="ds1" target="ds2">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="0.0" y="-23.1" as="offset" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

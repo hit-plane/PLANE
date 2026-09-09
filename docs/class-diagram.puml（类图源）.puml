@@ -1,0 +1,198 @@
+@startuml class-diagram
+skinparam defaultFontName "Noto Sans CJK SC"
+skinparam classAttributeIconSize 0
+title 类图：飞机大战 MVC 架构（数据层 / 控制层 / 视图层 分离）
+
+package "数据层 model" {
+  abstract class Entity {
+    +x : double
+    +y : double
+    +width : double
+    +height : double
+    +velX : double
+    +velY : double
+    -alive : boolean
+    +Entity(x, y, width, height)
+    +update(deltaTime)
+    +isAlive() : boolean
+    +setAlive(alive)
+  }
+
+  class Player {
+    -health : int
+    -maxHealth : int
+    -firePower : int
+    -fireRate : double
+    -invincibleTimer : double
+    -shielded : boolean
+    +move(dx, dy)
+    +shoot()
+    +takeDamage(damage)
+    +heal(amount)
+    +enhanceFirePower()
+  }
+
+  abstract class Enemy {
+    #type : EnemyType
+    #health : int
+    #maxHealth : int
+    #score : int
+    +takeDamage(damage)
+    #movePattern(deltaTime)
+  }
+
+  class NormalEnemy
+  class MovingEnemy {
+    -direction : double
+  }
+  class ShootingEnemy
+  class BomberEnemy
+
+  class Bullet {
+    -damage : int
+    -playerBullet : boolean
+    +isPlayerBullet() : boolean
+    +getDamage() : int
+  }
+
+  class Item {
+    -type : ItemType
+    -flashTimer : double
+    +getType() : ItemType
+  }
+
+  class GameState {
+    -status : GameStatus
+    -score : long
+    -level : int
+    -elapsedTime : double
+    +addScore(score)
+    +getStatus() : GameStatus
+    +getScore() : long
+  }
+
+  enum EnemyType {
+    NORMAL
+    MOVING
+    SHOOTING
+    BOMBER
+    BOSS
+  }
+
+  enum ItemType {
+    FIREPOWER
+    BOMB
+    SHIELD
+    HEAL
+  }
+
+  enum GameStatus {
+    MENU
+    PLAYING
+    PAUSED
+    GAME_OVER
+    VICTORY
+  }
+}
+
+package "控制层 controller" {
+  class GameController {
+    -gameState : GameState
+    -gameView : GameView
+    +start()
+    +update(deltaTime)
+    +render()
+    +pause()
+    +resume()
+    +restart()
+  }
+
+  class InputHandler {
+    -up : boolean
+    -down : boolean
+    -left : boolean
+    -right : boolean
+    -shooting : boolean
+    +attach(scene)
+    +getMoveX() : double
+    +getMoveY() : double
+    +isShooting() : boolean
+  }
+
+  class CollisionManager {
+    +resolve(player, enemies, bullets, items)
+  }
+
+  class SpawnManager {
+    +update(deltaTime, level)
+    +createEnemy() : Enemy
+    +createItem() : Item
+  }
+}
+
+package "视图层 view" {
+  class GameView {
+    +render(player, enemies, bullets, items)
+    -drawBackground()
+    -drawEntities(...)
+  }
+
+  class HUDView {
+    +drawHUD(score, health, firePower)
+  }
+
+  class MainMenuView {
+    +show()
+  }
+
+  class GameOverView {
+    +show(score)
+  }
+}
+
+package "工具 util" {
+  class GameConfig {
+    +WINDOW_WIDTH : int = 900
+    +WINDOW_HEIGHT : int = 700
+    +FPS : double = 60
+    +DEFAULT_HEALTH : int = 5
+  }
+}
+
+' ===== 继承关系 =====
+Entity <|-- Player
+Entity <|-- Enemy
+Entity <|-- Bullet
+Entity <|-- Item
+Enemy <|-- NormalEnemy
+Enemy <|-- MovingEnemy
+Enemy <|-- ShootingEnemy
+Enemy <|-- BomberEnemy
+
+' ===== 依赖/使用关系 =====
+Enemy ..> EnemyType
+Item ..> ItemType
+GameState ..> GameStatus
+Player ..> GameConfig
+Bullet ..> GameConfig
+
+' ===== 控制层装配（控制器持有各子系统）=====
+GameController *-- GameState
+GameController *-- GameView
+GameController *-- InputHandler
+GameController *-- CollisionManager
+GameController *-- SpawnManager
+
+' ===== 视图层渲染输入依赖 =====
+GameView ..> Player
+GameView ..> Enemy
+GameView ..> Bullet
+GameView ..> Item
+HUDView ..> GameConfig
+
+note bottom of GameController
+  MVC：Update 阶段驱动模型 + 控制子系统，
+  Render 阶段调用 GameView 渲染画面。
+end note
+
+@enduml

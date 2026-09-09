@@ -1,0 +1,41 @@
+@startuml sequence-collision
+skinparam defaultFontName "Noto Sans CJK SC"
+skinparam sequenceMessageAlign center
+title 时序图2：单帧碰撞与击毁结算（含多对碰撞循环）
+
+participant "系统定时器" as Timer
+participant "主控制器\nGameController" as GC
+participant "碰撞检测器\nCollisionManager" as CM
+participant "子弹\nBullet" as B
+participant "敌机\nEnemy" as E
+participant "游戏状态\nGameState" as GS
+participant "敌机生成器\nSpawnManager" as SM
+
+Timer -> GC : update(deltaTime)
+GC -> CM : resolve(player, enemies, bullets, items)
+
+loop 每对"子弹-敌机"碰撞盒重叠（F06/A1）
+  CM -> B : 判断与敌机碰撞盒重叠？
+  CM -> E : takeDamage(damage)
+  CM -> B : setAlive(false)（销毁子弹）
+  alt 敌机血量归零（击毁）
+    CM -> E : setAlive(false)（销毁敌机）
+    CM -> GS : addScore(score)（F08，按类型）
+    CM -> CM : 掉落判定（20%，F10）
+    alt 判定命中
+      CM -> SM : createItem()
+      SM --> CM : 生成道具（Item）
+    end
+  else 敌机存活
+    CM -> E : 保留，继续移动（F05）
+  end
+end
+
+GC -> CM : 玩家受击 / 机体碰撞结算（F07）
+GC -> CM : 玩家拾取道具结算（F10）
+
+note over CM
+  一帧内多对碰撞全部结算，
+  不遗漏（GWT-10）。
+end
+@enduml
