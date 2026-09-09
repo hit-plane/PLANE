@@ -17,6 +17,8 @@ public class PlaneApp extends Application {
         stage.show();
     }
 
+    // 启动应用程序
+
     public static void main(String[] args) {
         launch(args);
     }
