@@ -169,4 +169,52 @@ class PlayerTest {
         assertEquals(0, player.getX(), 0.001);
         assertEquals(GameConfig.WINDOW_HEIGHT - player.getHeight(), player.getY(), 0.001);
     }
+
+    // ---------------- 火力强化时限（F10 / Q6） ----------------
+
+    @Test
+    void firePowerRevertsAfterPowerUpDuration() {
+        player.enhanceFirePower();
+        assertEquals(2, player.getFirePower());
+
+        player.update(GameConfig.FIREPOWER_DURATION - 0.1);
+        assertEquals(2, player.getFirePower(), "时限内应保持强化");
+
+        player.update(0.2);
+        assertEquals(1, player.getFirePower(), "过了时限应回落单发");
+    }
+
+    @Test
+    void pickingUpFirePowerAgainRefreshesTimer() {
+        player.enhanceFirePower();
+        player.update(GameConfig.FIREPOWER_DURATION - 0.5);
+
+        player.enhanceFirePower();                              // 再吃一个：刷新计时，不是叠加时长
+        player.update(GameConfig.FIREPOWER_DURATION - 0.5);
+        assertEquals(2, player.getFirePower(), "重新拾取后应重新开始计时");
+
+        player.update(0.6);
+        assertEquals(1, player.getFirePower(), "刷新后的时限过了照样回落单发");
+    }
+
+    // ---------------- 开局复位（F01） ----------------
+
+    @Test
+    void resetRestoresRunScopedState() {
+        player.enhanceFirePower();
+        player.activateShield();
+        player.takeDamage(GameConfig.BULLET_DAMAGE);
+        player.move(200, 200);
+
+        player.reset(300, 400);
+
+        assertEquals(300, player.getX(), 0.001);
+        assertEquals(400, player.getY(), 0.001);
+        assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
+        assertEquals(1, player.getFirePower(), "火力强化不该带到新一局");
+        assertFalse(player.isShielded(), "护盾不该带到新一局");
+        assertFalse(player.isInvincible());
+        assertTrue(player.isAlive());
+        assertTrue(player.isReadyToShoot());
+    }
 }

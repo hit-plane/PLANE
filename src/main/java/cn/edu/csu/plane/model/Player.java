@@ -19,6 +19,7 @@ public class Player extends Entity {
     private int health;
     private int maxHealth;
     private int firePower;
+    private double firePowerTimer;    // 火力强化还剩几秒（Q6：10 秒后回落单发）
     private double fireRate;          // 两次开火的间隔（秒）
     private double fireCooldown;      // 距离下次能开火还剩多久
     private double invincibleTimer;
@@ -29,10 +30,23 @@ public class Player extends Entity {
         this.maxHealth = GameConfig.DEFAULT_HEALTH;
         this.health = maxHealth;
         this.firePower = 1;
+        this.firePowerTimer = 0;
         this.fireRate = GameConfig.PLAYER_FIRE_INTERVAL;
         this.fireCooldown = 0;
         this.invincibleTimer = 0;
         this.shielded = false;
+    }
+
+    /** 回到一局的初始状态：满血、单发、无盾、无冷却，坐标复位到底部中央（F01）。 */
+    public void reset(double x, double y) {
+        moveTo(x, y);
+        this.health = maxHealth;
+        this.firePower = 1;
+        this.firePowerTimer = 0;
+        this.fireCooldown = 0;
+        this.invincibleTimer = 0;
+        this.shielded = false;
+        this.alive = true;
     }
 
     @Override
@@ -42,6 +56,14 @@ public class Player extends Entity {
         }
         if (fireCooldown > 0) {
             fireCooldown -= deltaTime;
+        }
+        // 火力强化是有时限的，到点掉回单发（F10 / Q6）
+        if (firePowerTimer > 0) {
+            firePowerTimer -= deltaTime;
+            if (firePowerTimer <= 0) {
+                firePowerTimer = 0;
+                firePower = 1;
+            }
         }
     }
 
@@ -114,9 +136,13 @@ public class Player extends Entity {
         health = Math.min(health + amount, maxHealth);
     }
 
-    /** 火力强化：升到上限后不再累加，避免出现既无效果又无限增长的等级。 */
+    /**
+     * 火力强化：升到上限后不再累加，避免出现既无效果又无限增长的等级。
+     * 同时把 10 秒时限重新计时——重复吃道具是刷新时间，不是叠加时长（Q6）。
+     */
     public void enhanceFirePower() {
         firePower = Math.min(firePower + 1, GameConfig.MAX_FIRE_POWER);
+        firePowerTimer = GameConfig.FIREPOWER_DURATION;
     }
 
     public void activateShield() {

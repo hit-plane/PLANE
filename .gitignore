@@ -34,3 +34,6 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### 游戏运行时生成 ###
+highscore.txt

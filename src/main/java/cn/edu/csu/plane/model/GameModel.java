@@ -47,6 +47,9 @@ public interface GameModel {
     /** 返回当前关卡。 */
     int getLevel();
 
+    /** 返回历史最高分（F13）；从没打过或存档损坏时为 0。 */
+    int getHighScore();
+
     /** 返回当前游戏状态。 */
     GameStatus getStatus();
 

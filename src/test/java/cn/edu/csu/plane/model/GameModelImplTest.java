@@ -3,8 +3,10 @@ package cn.edu.csu.plane.model;
 import cn.edu.csu.plane.util.GameConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.reflect.Method;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Random;
 
@@ -21,6 +23,9 @@ import static org.junit.jupiter.api.Assertions.*;
 class GameModelImplTest {
 
     private static final long SEED = 20260910L;
+
+    @TempDir
+    Path tempDir;
 
     private GameModelImpl model;
 
@@ -465,5 +470,80 @@ class GameModelImplTest {
         double elapsed = model.getElapsedTime();
         model.update(1.0);
         assertEquals(elapsed, model.getElapsedTime(), 0.001);
+    }
+
+    // ---------------- 开局复位与最高分（F01 / F13） ----------------
+
+    /** 存档指到临时目录，避免测试往工作目录里写 highscore.txt。 */
+    private GameModelImpl modelWithStore(HighScoreStore store) {
+        GameModelImpl fresh = new GameModelImpl(new Random(SEED), store);
+        fresh.initGame();
+        return fresh;
+    }
+
+    private void killPlayer(GameModelImpl target) {
+        target.getPlayer().takeDamage(GameConfig.DEFAULT_HEALTH);
+        target.update(0.016);
+    }
+
+    /** 重开一局要把上局的火力、护盾、无敌帧一并清掉，不能只回血回位（P7 回归）。 */
+    @Test
+    void initGameClearsRunScopedState() {
+        model.initGame();
+        Player player = model.getPlayer();
+        player.enhanceFirePower();
+        player.activateShield();
+        player.takeDamage(GameConfig.BULLET_DAMAGE);
+        model.movePlayer(-300, -300);
+
+        model.initGame();
+
+        assertEquals(1, player.getFirePower(), "火力强化不该带到新一局");
+        assertFalse(player.isShielded(), "护盾不该带到新一局");
+        assertFalse(player.isInvincible(), "无敌帧不该带到新一局");
+        assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
+        assertEquals((GameConfig.WINDOW_WIDTH - player.getWidth()) / 2.0, player.getX(), 0.001);
+    }
+
+    @Test
+    void highScoreIsWrittenWhenRunEnds() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(store);
+
+        fresh.addScore(300);
+        killPlayer(fresh);
+
+        assertEquals(GameStatus.GAME_OVER, fresh.getStatus());
+        assertEquals(300, fresh.getHighScore());
+        assertEquals(300, store.load(), "结算后成绩应落盘");
+    }
+
+    @Test
+    void lowerScoreDoesNotOverwriteHighScore() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(store);
+
+        fresh.addScore(300);
+        killPlayer(fresh);
+        assertEquals(300, fresh.getHighScore());
+
+        fresh.initGame();
+        fresh.addScore(100);
+        killPlayer(fresh);
+
+        assertEquals(300, fresh.getHighScore(), "分数更低的一局不该覆盖最高分");
+        assertEquals(300, store.load());
+    }
+
+    @Test
+    void highScoreLoadsFromExistingSave() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        store.save(1234);
+
+        GameModelImpl fresh = new GameModelImpl(new Random(SEED), store);
+
+        assertEquals(1234, fresh.getHighScore());
+        assertEquals(0, fresh.getScore(), "读存档不该影响本局分数");
+        assertEquals(GameStatus.MENU, fresh.getStatus());
     }
 }

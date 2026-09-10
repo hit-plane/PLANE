@@ -12,30 +12,42 @@ import java.util.Random;
  */
 public class GameModelImpl implements GameModel {
 
+    /** 玩家尺寸与出生点：战场底部居中（GWT-01）。 */
+    private static final double PLAYER_WIDTH = 50;
+    private static final double PLAYER_HEIGHT = 50;
+    private static final double PLAYER_START_X = (GameConfig.WINDOW_WIDTH - PLAYER_WIDTH) / 2.0;
+    private static final double PLAYER_START_Y = GameConfig.WINDOW_HEIGHT - PLAYER_HEIGHT - 20;
+
     private final GameState gameState;
     private final Player player;
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
     private final Random random;
+    private final HighScoreStore highScoreStore;
+    private int highScore;
     private double spawnTimer;
 
-    /** 生产用构造：随机源为默认种子。 */
+    /** 生产用构造：随机源为默认种子，最高分存到工作目录下的 highscore.txt。 */
     public GameModelImpl() {
-        this(new Random());
+        this(new Random(), new HighScoreStore());
     }
 
     /**
      * 供测试注入固定种子的随机源（同包可见），使机型掷点与道具掉落可复现。
-     * 生产路径不受影响。
+     * 存档仍走默认路径。
      */
     GameModelImpl(Random random) {
+        this(random, new HighScoreStore());
+    }
+
+    /** 随机源与存档都可注入；测试把存档指到临时目录，免得往工作目录写文件。 */
+    GameModelImpl(Random random, HighScoreStore highScoreStore) {
         this.gameState = new GameState();
-        this.player = new Player(
-                (GameConfig.WINDOW_WIDTH - 50) / 2.0,
-                GameConfig.WINDOW_HEIGHT - 50 - 20,
-                50, 50);
+        this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_WIDTH, PLAYER_HEIGHT);
         this.random = random;
+        this.highScoreStore = highScoreStore;
+        this.highScore = highScoreStore.load();
         this.spawnTimer = 0;
     }
 
@@ -43,10 +55,7 @@ public class GameModelImpl implements GameModel {
     public void initGame() {
         gameState.resetScore();
         gameState.setStatus(GameStatus.PLAYING);
-        player.setAlive(true);
-        player.heal(player.getMaxHealth());
-        player.moveTo((GameConfig.WINDOW_WIDTH - player.getWidth()) / 2.0,
-                GameConfig.WINDOW_HEIGHT - player.getHeight() - 20);
+        player.reset(PLAYER_START_X, PLAYER_START_Y);
         enemies.clear();
         bullets.clear();
         items.clear();
@@ -76,7 +85,16 @@ public class GameModelImpl implements GameModel {
         removeDeadEntities();
 
         if (!player.isAlive()) {
-            gameState.setStatus(GameStatus.GAME_OVER);
+            finishGame(GameStatus.GAME_OVER);
+        }
+    }
+
+    /** 一局结束：冻结状态，并把本局成绩刷进最高分存档（F09 / F13）。 */
+    private void finishGame(GameStatus status) {
+        gameState.setStatus(status);
+        if (gameState.getScore() > highScore) {
+            highScore = (int) gameState.getScore();
+            highScoreStore.save(highScore);
         }
     }
 
@@ -327,6 +345,9 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public int getLevel() { return gameState.getLevel(); }
+
+    @Override
+    public int getHighScore() { return highScore; }
 
     @Override
     public GameStatus getStatus() { return gameState.getStatus(); }
