@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxfile host="app.diagrams.net" version="24.7.17" type="device">
+  <diagram id="main-sm" name="主状态机：游戏生命周期">
+    <mxGraphModel dx="1600" dy="1200" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="1200" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="主状态机：游戏生命周期（GameStatus）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="1000" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="init" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="582" y="80" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="menu" value="MENU" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=14;fontStyle=1;arcSize=24" vertex="1" parent="1">
+          <mxGeometry x="200" y="200" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="playing" value="PLAYING" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=14;fontStyle=1;arcSize=24" vertex="1" parent="1">
+          <mxGeometry x="600" y="200" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="paused" value="PAUSED" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=14;fontStyle=1;arcSize=24" vertex="1" parent="1">
+          <mxGeometry x="1020" y="200" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="gameover" value="GAME_OVER" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=14;fontStyle=1;arcSize=24" vertex="1" parent="1">
+          <mxGeometry x="460" y="450" width="220" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="victory" value="VICTORY" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=14;fontStyle=1;arcSize=24" vertex="1" parent="1">
+          <mxGeometry x="760" y="450" width="200" height="70" as="geometry" />
+        </mxCell>
+        <mxCell id="final" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=none;strokeColor=#000000;strokeWidth=3" vertex="1" parent="1">
+          <mxGeometry x="582" y="620" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="finalInner" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="592" y="630" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="init" target="menu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="开始游戏 / initGame()" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="menu" target="playing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="按F12 / pause()" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="playing" target="paused">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="按F12 / resume()" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="paused" target="playing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="玩家血量≤0" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="playing" target="gameover">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="得分≥500" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="playing" target="victory">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="重新开始 / initGame()" style="endArrow=classic;html=1;rounded=1;strokeColor=#333333;fontSize=10;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="gameover" target="playing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e8" value="返回主菜单" style="endArrow=classic;html=1;rounded=1;strokeColor=#333333;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="gameover" target="menu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e9" value="重新开始 / initGame()" style="endArrow=classic;html=1;rounded=1;strokeColor=#333333;fontSize=10;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="victory" target="playing">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e10" value="返回主菜单" style="endArrow=classic;html=1;rounded=1;strokeColor=#333333;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.8;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="victory" target="menu">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e11" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333" edge="1" parent="1" source="gameover" target="final">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e12" value="" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333" edge="1" parent="1" source="victory" target="final">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="player-sm" name="子状态机1：玩家战机状态">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="子状态机 1：玩家战机状态（Player）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="800" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="init" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="82" y="262" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="normal" value="NORMAL&#10;（正常 / 自动射击）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="240" y="230" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="invincible" value="INVINCIBLE&#10;（无敌帧 1.0s）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="640" y="230" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="dead" value="DEAD&#10;（已击毁）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="400" y="480" width="220" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="initGame()" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="init" target="normal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="takeDamage()&#10;shielded==false：扣血&#10;invincibleTimer=1.0s" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10" edge="1" parent="1" source="normal" target="invincible">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="health≤0" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="normal" target="dead">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="invincibleTimer≤0&#10;无敌结束" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10" edge="1" parent="1" source="invincible" target="normal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="受击但伤害被忽略&#10;（计时不刷新）" style="endArrow=classic;html=1;rounded=1;strokeColor=#333333;fontSize=10;exitX=1;exitY=0.2;exitDx=0;exitDy=0;entryX=1;entryY=0.8;entryDx=0;entryDy=0" edge="1" parent="1" source="invincible" target="invincible">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="940" y="250" />
+              <mxPoint x="940" y="310" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6" value="health≤0（兜底）" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0" edge="1" parent="1" source="invincible" target="dead">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" value="initGame()&#10;重置血量与存活" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0" edge="1" parent="1" source="dead" target="normal">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+  <diagram id="item-sm" name="子状态机2：道具生命周期">
+    <mxGraphModel dx="1400" dy="1000" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1400" pageHeight="1000" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="title" value="子状态机 2：道具生命周期（Item）" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1" vertex="1" parent="1">
+          <mxGeometry x="200" y="20" width="800" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="init" value="" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;fillColor=#000000;strokeColor=#000000" vertex="1" parent="1">
+          <mxGeometry x="392" y="80" width="36" height="36" as="geometry" />
+        </mxCell>
+        <mxCell id="falling" value="FALLING&#10;（下落中）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="310" y="180" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="landed" value="LANDED_FLASHING&#10;（着陆闪烁 3.0s）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="280" y="370" width="260" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="collected" value="COLLECTED&#10;（已拾取）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="100" y="560" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="expired" value="EXPIRED&#10;（超时消失）" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=13;fontStyle=1;arcSize=16" vertex="1" parent="1">
+          <mxGeometry x="520" y="560" width="200" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" value="敌机被击毁 + 概率掉落" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=11" edge="1" parent="1" source="init" target="falling">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" value="到达窗口底边&#10;flashTimer = 3.0s" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10" edge="1" parent="1" source="falling" target="landed">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" value="玩家接触拾取&#10;applyItem() 即时生效" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.2;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="falling" target="collected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" value="flashTimer≤0&#10;闪烁超时" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.7;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="landed" target="expired">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" value="玩家接触拾取&#10;applyItem() 即时生效" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.3;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0" edge="1" parent="1" source="landed" target="collected">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" value="alive=false&#10;从列表移除" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0" edge="1" parent="1" source="collected">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="200" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7" value="alive=false&#10;从列表移除" style="endArrow=classic;html=1;rounded=0;strokeColor=#333333;fontSize=10;exitX=0.5;exitY=1;exitDx=0;exitDy=0" edge="1" parent="1" source="expired">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="620" y="700" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
