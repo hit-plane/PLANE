@@ -7,10 +7,14 @@ public class BomberEnemy extends Enemy {
 
     public BomberEnemy(double x, double y) {
         super(x, y, 50, 50, EnemyType.BOMBER, 1, 500);
+        this.velY = 430;   // 俯冲，基本一路冲到底
     }
 
     @Override
     protected void movePattern(double deltaTime) {
-        // TODO: 高速向下冲撞
+        move(deltaTime);
+        if (isOutsideScreen()) {
+            alive = false;
+        }
     }
 }

@@ -20,18 +20,23 @@ public abstract class Enemy extends Entity {
 
     @Override
     public void update(double deltaTime) {
-        // TODO: 子类固定行为（如射击敌机发射子弹）
         movePattern(deltaTime);
     }
 
     /** 由具体敌机类型实现移动轨迹。 */
     protected abstract void movePattern(double deltaTime);
 
+    /** 挨一发子弹。血扣光就标记为销毁，剩下的交给碰撞结算那边去加分。 */
     public void takeDamage(int damage) {
-        // TODO: 扣血，血量归零则销毁
+        health -= damage;
+        if (health <= 0) {
+            health = 0;
+            alive = false;
+        }
     }
 
     public EnemyType getType() { return type; }
     public int getHealth() { return health; }
+    public int getMaxHealth() { return maxHealth; }
     public int getScore() { return score; }
 }

@@ -1,7 +1,8 @@
 package cn.edu.csu.plane.model;
 
-import cn.edu.csu.plane.util.GameConfig;
-
+/**
+ * 普通敌机：一路直冲，撞到底部就没了。
+ */
 public class NormalEnemy extends Enemy {
 
     public NormalEnemy(double x, double y, double width, double height, EnemyType type, int health, int score) {
@@ -11,17 +12,9 @@ public class NormalEnemy extends Enemy {
 
     @Override
     protected void movePattern(double deltaTime) {
-        move();
-        if (y > GameConfig.WINDOW_HEIGHT) {
-            alive = false;
-        }
-    }
-
-    @Override
-    public void takeDamage(int damage) {
-        health -= damage;
-        if (health <= 0) {
-            alive = false;
+        move(deltaTime);
+        if (isOutsideScreen()) {
+            alive = false;   // 飞出底部直接消失，不给分
         }
     }
 }

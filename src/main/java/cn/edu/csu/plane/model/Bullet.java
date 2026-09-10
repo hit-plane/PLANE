@@ -5,11 +5,15 @@ package cn.edu.csu.plane.model;
  */
 public class Bullet extends Entity {
 
+    /** 子弹尺寸。之前这里传的是 0，碰撞盒面积为 0，永远判定不上，所以单独拎出来当常量。 */
+    public static final double WIDTH = 6;
+    public static final double HEIGHT = 14;
+
     private final int damage;
     private final boolean playerBullet;
 
     public Bullet(double x, double y, double velY, int damage, boolean playerBullet) {
-        super(x, y, 0, 0);
+        super(x, y, WIDTH, HEIGHT);
         this.velY = velY;
         this.damage = damage;
         this.playerBullet = playerBullet;
@@ -17,8 +21,10 @@ public class Bullet extends Entity {
 
     @Override
     public void update(double deltaTime) {
-        // TODO: 越界判定
-        move();
+        move(deltaTime);
+        if (isOutsideScreen()) {
+            alive = false;   // 玩家子弹往上飞、敌弹往下飞，都是出屏就销毁
+        }
     }
 
     public int getDamage() { return damage; }
