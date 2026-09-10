@@ -45,4 +45,11 @@ class GameConfigTest {
         assertEquals(0.2, GameConfig.ITEM_DROP_RATE, 0.001, "SRS Q6：击毁敌机 20% 掉道具");
         assertEquals(30, GameConfig.HEAL_AMOUNT, "SRS Q6：回血 30 点");
     }
+
+    @Test
+    void movementAndVictoryValuesAreUsable() {
+        assertTrue(GameConfig.PLAYER_SPEED > 0, "玩家速度得是正数，否则战机走不动");
+        assertTrue(GameConfig.VICTORY_SCORE > GameConfig.SCORE_PER_LEVEL,
+                "通关分数要是高于一个关卡线，不然一升关就通关了");
+    }
 }

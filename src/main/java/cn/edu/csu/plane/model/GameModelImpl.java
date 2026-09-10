@@ -84,8 +84,14 @@ public class GameModelImpl implements GameModel {
         checkCollisions();
         removeDeadEntities();
 
+        // 死亡优先于通关：同一帧里既被打光血、又刚好够通关分时，按失败算
         if (!player.isAlive()) {
             finishGame(GameStatus.GAME_OVER);
+            return;
+        }
+
+        if (gameState.getScore() >= GameConfig.VICTORY_SCORE) {
+            finishGame(GameStatus.VICTORY);
         }
     }
 

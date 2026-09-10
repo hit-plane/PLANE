@@ -41,6 +41,8 @@ public final class GameConfig {
     // ---------- 玩家（F07 / F03 / Q6） ----------
     /** 玩家初始血量（F07/Q2）。 */
     public static final int DEFAULT_HEALTH = getInt("player.health", 100);
+    /** 玩家移动速度（像素/秒）。输入层只给 -1/0/1 方向，主循环负责乘速度和步长。 */
+    public static final double PLAYER_SPEED = getDouble("player.speed", 360.0);
     /** 自动射击间隔（秒）：300ms（F03 + Q1）。 */
     public static final double PLAYER_FIRE_INTERVAL = getDouble("player.fire.interval", 0.3);
     /** 火力强化（双发）的持续秒数（Q6）。 */
@@ -96,6 +98,9 @@ public final class GameConfig {
     public static final double NORMAL_TYPE_WEIGHT = getDouble("spawn.normal.weight", 3.0);
     /** 高级机型权重上限（每升 1 关给三种高级机各加 1 份），封顶后难度不再上升。 */
     public static final double MAX_ADVANCED_WEIGHT = getDouble("spawn.advanced.weight.max", 4.0);
+
+    /** 通关分数（F17）：累计得分达到它就判胜。 */
+    public static final int VICTORY_SCORE = getInt("level.victory.score", 5000);
 
     // ---------- 道具（F10 / Q6） ----------
     /** 击毁敌机掉落道具的概率。 */

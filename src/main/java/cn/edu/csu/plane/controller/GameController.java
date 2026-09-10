@@ -66,14 +66,17 @@ public class GameController {
         lastFrameNanos = nowNanos;
 
         if (model.getStatus() == GameStatus.PLAYING) {
-            model.movePlayer(input.getMoveX(), input.getMoveY());
+            // 输入层给的是 -1/0/1 方向，得乘上速度和这一帧的步长才是位移像素；
+            // 直接把方向当位移传的话，战机一帧只挪 1 像素，而且帧率一变速度就变。
+            model.movePlayer(input.getMoveX() * GameConfig.PLAYER_SPEED * deltaTime,
+                    input.getMoveY() * GameConfig.PLAYER_SPEED * deltaTime);
             model.update(deltaTime);
         }
 
-        if (model.getStatus() == GameStatus.GAME_OVER && !awaitingResume) {
+        if (isRunOver(model.getStatus()) && !awaitingResume) {
             awaitingResume = true;
-            onGameOver();
-        } else if (model.getStatus() != GameStatus.GAME_OVER) {
+            onRunOver();
+        } else if (!isRunOver(model.getStatus())) {
             awaitingResume = false;
         }
 
@@ -120,8 +123,13 @@ public class GameController {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems());
     }
 
+    /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */
+    private static boolean isRunOver(GameStatus status) {
+        return status == GameStatus.GAME_OVER || status == GameStatus.VICTORY;
+    }
+
     /** 一局结束：交给视图展示本局得分。 */
-    private void onGameOver() {
+    private void onRunOver() {
         view.showGameOver(model.getScore());
     }
 

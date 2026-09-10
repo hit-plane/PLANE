@@ -81,22 +81,22 @@ class PlaneGameModelTest {
 
     @Test
     void addScore_shouldIncreaseScoreAndTriggerLevelUp() {
-        // 验证点：通过 addScore 模拟击毁得分，分数正确累加并触发关卡提升
-        model.addScore(50);
-        assertEquals(50, model.getScore(), "加 50 分后总分应为 50");
+        // 验证点：通过 addScore 模拟击毁得分，分数正确累加并在满 1000 分时升关
+        model.addScore(GameConfig.SCORE_PER_LEVEL - 1);
+        assertEquals(GameConfig.SCORE_PER_LEVEL - 1, model.getScore(), "未到关卡线时分数照常累加");
+        assertEquals(1, model.getLevel(), "差 1 分不该升关");
 
-        model.addScore(150);
-        assertEquals(200, model.getScore(), "再加 150 分后总分应为 200");
-
-        assertTrue(model.getLevel() >= 2, "累计 200 分后应触发关卡提升");
+        model.addScore(1);
+        assertEquals(GameConfig.SCORE_PER_LEVEL, model.getScore(), "再加 1 分总分应为 1000");
+        assertEquals(2, model.getLevel(), "累计满 1000 分应升到第 2 关");
     }
 
     @Test
     void addScore_reachVictoryThreshold_shouldSetVictoryStatus() {
-        // 验证点：累计得分达到 500 后状态变为 VICTORY
-        model.addScore(500);
+        // 验证点：累计得分达到通关分数（配置项）后状态变为 VICTORY
+        model.addScore(GameConfig.VICTORY_SCORE);
         model.update(1.0 / 60);
-        assertEquals(GameStatus.VICTORY, model.getStatus(), "得分达到 500 后应判定胜利");
+        assertEquals(GameStatus.VICTORY, model.getStatus(), "达到通关分数应判定胜利");
     }
 
     // ========== 5. 生命扣除 ==========

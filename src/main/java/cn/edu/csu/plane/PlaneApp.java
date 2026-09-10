@@ -8,6 +8,7 @@ import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameView;
 import javafx.application.Application;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Stage;
 
@@ -29,7 +30,9 @@ public class PlaneApp extends Application {
         InputHandler input = new InputHandler();
         input.attach(scene);
         // 暂停键（P）与失焦自动暂停/恢复（F12）
-        scene.setOnKeyPressed(event -> {
+        // 必须用 addEventHandler 追加：setOnKeyPressed 是"单值"处理器，
+        // 会把 InputHandler.attach 装的移动键监听整个顶掉，导致 WASD/方向键失效。
+        scene.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             if (event.getCode() == GameController.PAUSE_KEY) {
                 controller.togglePause();
             }

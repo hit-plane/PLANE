@@ -546,4 +546,31 @@ class GameModelImplTest {
         assertEquals(0, fresh.getScore(), "读存档不该影响本局分数");
         assertEquals(GameStatus.MENU, fresh.getStatus());
     }
+
+    // ---------------- 通关（F17） ----------------
+
+    @Test
+    void reachingVictoryScoreEndsRunAsVictory() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(store);
+
+        fresh.addScore(GameConfig.VICTORY_SCORE);
+        fresh.update(0.016);
+
+        assertEquals(GameStatus.VICTORY, fresh.getStatus());
+        assertEquals(GameConfig.VICTORY_SCORE, fresh.getHighScore());
+        assertEquals(GameConfig.VICTORY_SCORE, store.load(), "通关成绩也要落盘");
+    }
+
+    /** 同一帧里既够通关分又被打死时按失败算（死亡判定优先）。 */
+    @Test
+    void deathTakesPrecedenceOverVictoryInSameFrame() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(store);
+
+        fresh.addScore(GameConfig.VICTORY_SCORE);
+        killPlayer(fresh);
+
+        assertEquals(GameStatus.GAME_OVER, fresh.getStatus(), "同帧竞争时应判失败");
+    }
 }
