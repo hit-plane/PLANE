@@ -11,8 +11,14 @@ public interface GameModel {
     /** 初始化一局：分数归零、血量回满、清空场上实体。 */
     void initGame();
 
-    /** 推进一帧：实体移动、敌机生成、碰撞结算。 */
+    /** 推进一帧：实体移动、敌机生成、碰撞结算。状态非 PLAYING 时整帧冻结。 */
     void update(double deltaTime);
+
+    /** 暂停：冻结实体运动、生成与计分（F12）。 */
+    void pause();
+
+    /** 恢复：从暂停回到 PLAYING（F12）。 */
+    void resume();
 
     /** 移动玩家战机，并限制其在战场边界内。 */
     void movePlayer(double dx, double dy);
