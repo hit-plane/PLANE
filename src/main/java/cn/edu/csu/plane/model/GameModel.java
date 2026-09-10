@@ -8,7 +8,7 @@ import java.util.List;
  */
 public interface GameModel {
 
-    /** 初始化一局：分数归零、血量回满、清空场上实体。 */
+    /** 初始化一局：分数归零、血量回满、战机复位、清空场上实体。 */
     void initGame();
 
     /** 推进一帧：实体移动、敌机生成、碰撞结算。状态非 PLAYING 时整帧冻结。 */
@@ -20,7 +20,10 @@ public interface GameModel {
     /** 恢复：从暂停回到 PLAYING（F12）。 */
     void resume();
 
-    /** 移动玩家战机，并限制其在战场边界内。 */
+    /** 返回主菜单：清空场上实体并释放本局。 */
+    void toMenu();
+
+    /** 移动玩家战机，并限制其在战场边界内。非 PLAYING 状态不响应。 */
     void movePlayer(double dx, double dy);
 
     /** 返回玩家战机（供视图渲染）。 */
@@ -46,6 +49,9 @@ public interface GameModel {
 
     /** 返回当前游戏状态。 */
     GameStatus getStatus();
+
+    /** 返回本局已进行时长（秒）。 */
+    double getElapsedTime();
 
     /** 累加得分并触发关卡判定。 */
     void addScore(int amount);

@@ -1,5 +1,7 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.GameConfig;
+
 /**
  * 敌机抽象基类：定义血量、分值、类型与移动模式，具体移动轨迹由子类实现。
  */
@@ -33,6 +35,14 @@ public abstract class Enemy extends Entity {
             health = 0;
             alive = false;
         }
+    }
+
+    /**
+     * 撞到玩家时给玩家造成的伤害。
+     * 默认是普通机体碰撞伤害，自爆敌机覆写为高额伤害（SRS 3.2）。
+     */
+    public int getCollisionDamage() {
+        return GameConfig.COLLISION_DAMAGE;
     }
 
     public EnemyType getType() { return type; }

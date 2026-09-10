@@ -12,42 +12,41 @@ import java.util.Random;
  */
 public class GameModelImpl implements GameModel {
 
-    /** 机体碰撞伤害：与敌机相撞玩家扣这么多，敌机同时销毁。 */
-    private static final int COLLISION_DAMAGE = 20;
-    /** 回血道具的回复量。 */
-    private static final int HEAL_AMOUNT = 30;
-    /** 击毁敌机掉落道具的概率。 */
-    private static final double ITEM_DROP_RATE = 0.2;
-
-    /** 敌机生成间隔：随关卡缩短，但不快过下限。 */
-    private static final double SPAWN_INTERVAL_BASE = 2.0;
-    private static final double SPAWN_INTERVAL_MIN = 0.6;
-    private static final double SPAWN_INTERVAL_STEP = 0.15;
-    /** 关卡的机型权重：普通机固定权重，每升 1 关给三种高级机型各加一份。 */
-    private static final double NORMAL_WEIGHT = 3.0;
-    private static final double MAX_ADVANCED_WEIGHT = 4.0;
-
-    /** 普通敌机由外部传入尺寸/血量/分值，这里给一组默认值。 */
-    private static final double NORMAL_ENEMY_SIZE = 40;
-    private static final int NORMAL_ENEMY_HEALTH = 2;
-    private static final int NORMAL_ENEMY_SCORE = 50;
-    /** 横移/射击/自爆三种高级机型的固定尺寸。 */
-    private static final double ENEMY_SIZE = 50;
-
-    private final GameState gameState = new GameState();
-    private final Player player = new Player(400, 600, 50, 50);
+    private final GameState gameState;
+    private final Player player;
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
-    private final Random random = new Random();
-    private double spawnTimer = 0;
+    private final Random random;
+    private double spawnTimer;
+
+    /** 生产用构造：随机源为默认种子。 */
+    public GameModelImpl() {
+        this(new Random());
+    }
+
+    /**
+     * 供测试注入固定种子的随机源（同包可见），使机型掷点与道具掉落可复现。
+     * 生产路径不受影响。
+     */
+    GameModelImpl(Random random) {
+        this.gameState = new GameState();
+        this.player = new Player(
+                (GameConfig.WINDOW_WIDTH - 50) / 2.0,
+                GameConfig.WINDOW_HEIGHT - 50 - 20,
+                50, 50);
+        this.random = random;
+        this.spawnTimer = 0;
+    }
 
     @Override
     public void initGame() {
         gameState.resetScore();
         gameState.setStatus(GameStatus.PLAYING);
-        player.heal(player.getMaxHealth());
         player.setAlive(true);
+        player.heal(player.getMaxHealth());
+        player.moveTo((GameConfig.WINDOW_WIDTH - player.getWidth()) / 2.0,
+                GameConfig.WINDOW_HEIGHT - player.getHeight() - 20);
         enemies.clear();
         bullets.clear();
         items.clear();
@@ -56,10 +55,12 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public void update(double deltaTime) {
-        // 暂停 / 结束 / 还没开局：整帧不动，也不计分（F12）
+        // 暂停 / 结束 / 还没开局：整帧不动，也不计分（F12/F14）
         if (gameState.getStatus() != GameStatus.PLAYING) {
             return;
         }
+
+        gameState.advanceTime(deltaTime);
 
         player.update(deltaTime);
 
@@ -76,11 +77,6 @@ public class GameModelImpl implements GameModel {
 
         if (!player.isAlive()) {
             gameState.setStatus(GameStatus.GAME_OVER);
-            return;
-        }
-
-        if (gameState.getScore() >= 500) {
-            gameState.setStatus(GameStatus.VICTORY);
         }
     }
 
@@ -96,6 +92,16 @@ public class GameModelImpl implements GameModel {
         if (gameState.getStatus() == GameStatus.PAUSED) {
             gameState.setStatus(GameStatus.PLAYING);
         }
+    }
+
+    /** 回到主菜单：清空场上实体并释放本局，供状态机 T10 使用。 */
+    @Override
+    public void toMenu() {
+        enemies.clear();
+        bullets.clear();
+        items.clear();
+        spawnTimer = 0;
+        gameState.setStatus(GameStatus.MENU);
     }
 
     /** 玩家不做手动发射，进一局后按 fireRate 自动连发（F03）。 */
@@ -115,15 +121,15 @@ public class GameModelImpl implements GameModel {
 
     /** 关卡越高，敌机出得越密（F11 难度递增）。 */
     private double currentSpawnInterval() {
-        double interval = SPAWN_INTERVAL_BASE
-                - (gameState.getLevel() - 1) * SPAWN_INTERVAL_STEP;
-        return Math.max(interval, SPAWN_INTERVAL_MIN);
+        double interval = GameConfig.SPAWN_INTERVAL_BASE
+                - (gameState.getLevel() - 1) * GameConfig.SPAWN_INTERVAL_STEP;
+        return Math.max(interval, GameConfig.SPAWN_INTERVAL_MIN);
     }
 
     /** 从顶部随机横坐标生成一架随机机型的敌机（F04）。 */
     private Enemy spawnEnemy() {
         EnemyType type = randomType();
-        double size = (type == EnemyType.NORMAL) ? NORMAL_ENEMY_SIZE : ENEMY_SIZE;
+        double size = (type == EnemyType.NORMAL) ? GameConfig.NORMAL_ENEMY_SIZE : GameConfig.ENEMY_SIZE;
         double x = random.nextDouble() * (GameConfig.WINDOW_WIDTH - size);
         double y = -size;
 
@@ -131,8 +137,7 @@ public class GameModelImpl implements GameModel {
             case MOVING -> new MovingEnemy(x, y);
             case SHOOTING -> new ShootingEnemy(x, y);
             case BOMBER -> new BomberEnemy(x, y);
-            default -> new NormalEnemy(x, y, NORMAL_ENEMY_SIZE, NORMAL_ENEMY_SIZE,
-                    EnemyType.NORMAL, NORMAL_ENEMY_HEALTH, NORMAL_ENEMY_SCORE);
+            default -> new NormalEnemy(x, y);
         };
     }
 
@@ -141,17 +146,18 @@ public class GameModelImpl implements GameModel {
      * 每升 1 关给横移/射击/自爆各加一份权重，高级机型出现得越来越频繁（F11）。
      */
     private EnemyType randomType() {
-        double advanced = Math.min(gameState.getLevel() - 1, MAX_ADVANCED_WEIGHT);
-        double total = NORMAL_WEIGHT + advanced * 3;
+        double advanced = Math.min(gameState.getLevel() - 1, GameConfig.MAX_ADVANCED_WEIGHT);
+        double normalWeight = GameConfig.NORMAL_TYPE_WEIGHT;
+        double total = normalWeight + advanced * 3;
 
         double roll = random.nextDouble() * total;
-        if (roll < NORMAL_WEIGHT) {
+        if (roll < normalWeight) {
             return EnemyType.NORMAL;
         }
-        if (roll < NORMAL_WEIGHT + advanced) {
+        if (roll < normalWeight + advanced) {
             return EnemyType.MOVING;
         }
-        if (roll < NORMAL_WEIGHT + advanced * 2) {
+        if (roll < normalWeight + advanced * 2) {
             return EnemyType.SHOOTING;
         }
         return EnemyType.BOMBER;
@@ -185,7 +191,10 @@ public class GameModelImpl implements GameModel {
         checkPlayerItem();
     }
 
-    /** 玩家子弹命中敌机：敌机扣血、子弹销毁，击毁则计分并按概率掉落道具（F06/F08/F10）。 */
+    /**
+     * 玩家子弹命中敌机：敌机扣血、子弹销毁，击毁则计分并按概率掉落道具（F06/F08/F10）。
+     * 一发子弹只结算一架敌机（命中即 break），保证计分账目与 E06 的"子弹销毁"语义一一对应。
+     */
     private void checkBulletEnemy() {
         for (Bullet bullet : bullets) {
             if (!bullet.isPlayerBullet() || !bullet.isAlive()) {
@@ -222,7 +231,7 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 机体碰撞：玩家扣血、敌机销毁；护盾与无敌帧在 Player 内部消化（F07）。 */
+    /** 机体碰撞：玩家按机型受对应伤害、敌机销毁；护盾与无敌帧在 Player 内部消化（F07）。 */
     private void checkPlayerEnemy() {
         if (!player.isAlive()) {
             return;
@@ -232,7 +241,7 @@ public class GameModelImpl implements GameModel {
                 continue;
             }
             enemy.setAlive(false);
-            player.takeDamage(COLLISION_DAMAGE);
+            player.takeDamage(enemy.getCollisionDamage());
         }
     }
 
@@ -252,7 +261,7 @@ public class GameModelImpl implements GameModel {
 
     /** 击毁敌机时按概率掉一种随机道具（F10）。 */
     private void dropItem(Enemy enemy) {
-        if (random.nextDouble() >= ITEM_DROP_RATE) {
+        if (random.nextDouble() >= GameConfig.ITEM_DROP_RATE) {
             return;
         }
         ItemType[] types = ItemType.values();
@@ -264,13 +273,14 @@ public class GameModelImpl implements GameModel {
     private void applyItem(ItemType type) {
         switch (type) {
             case FIREPOWER -> player.enhanceFirePower();
-            case HEAL -> player.heal(HEAL_AMOUNT);
+            case HEAL -> player.heal(GameConfig.HEAL_AMOUNT);
             case SHIELD -> player.activateShield();
             case BOMB -> clearBattlefield();
+            default -> throw new IllegalStateException("未处理的道具类型: " + type);
         }
     }
 
-    /** 全屏炸弹：清掉场上所有敌机与敌弹，并按各机分值计入得分。 */
+    /** 全屏炸弹：清掉场上所有敌机与敌弹，并按各机分值计入得分（不掉落道具）。 */
     private void clearBattlefield() {
         for (Enemy enemy : enemies) {
             if (enemy.isAlive()) {
@@ -281,7 +291,8 @@ public class GameModelImpl implements GameModel {
         bullets.removeIf(bullet -> !bullet.isPlayerBullet());
     }
 
-    private boolean isColliding(Entity a, Entity b) {
+    /** AABB 相交判定：四类碰撞共用一条判据。 */
+    boolean isColliding(Entity a, Entity b) {
         return a.getX() < b.getX() + b.getWidth() &&
                a.getX() + a.getWidth() > b.getX() &&
                a.getY() < b.getY() + b.getHeight() &&
@@ -290,6 +301,9 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public void movePlayer(double dx, double dy) {
+        if (gameState.getStatus() != GameStatus.PLAYING) {
+            return;   // 暂停或已结束时不再响应移动（F12/F14）
+        }
         player.move(dx, dy);
     }
 
@@ -316,6 +330,10 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public GameStatus getStatus() { return gameState.getStatus(); }
+
+    /** 本局已进行时长（秒）。 */
+    @Override
+    public double getElapsedTime() { return gameState.getElapsedTime(); }
 
     @Override
     public void addScore(int amount) {

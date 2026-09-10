@@ -1,5 +1,7 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.GameConfig;
+
 import java.util.Collections;
 import java.util.List;
 
@@ -8,16 +10,13 @@ import java.util.List;
  */
 public class ShootingEnemy extends Enemy {
 
-    private static final double FIRE_INTERVAL = 2.0;    // 每隔几秒打一发
-    private static final double BULLET_SPEED = 260;
-    private static final int BULLET_DAMAGE = 10;
-
     private double fireCooldown;
 
     public ShootingEnemy(double x, double y) {
-        super(x, y, 50, 50, EnemyType.SHOOTING, 3, 300);
-        this.velY = 90;
-        this.fireCooldown = FIRE_INTERVAL;
+        super(x, y, GameConfig.ENEMY_SIZE, GameConfig.ENEMY_SIZE,
+                EnemyType.SHOOTING, GameConfig.SHOOTING_ENEMY_HEALTH, GameConfig.SHOOTING_ENEMY_SCORE);
+        this.velY = GameConfig.SHOOTING_ENEMY_SPEED;
+        this.fireCooldown = GameConfig.SHOOTING_ENEMY_FIRE_INTERVAL;
     }
 
     @Override
@@ -40,8 +39,9 @@ public class ShootingEnemy extends Enemy {
         if (fireCooldown > 0) {
             return Collections.emptyList();
         }
-        fireCooldown = FIRE_INTERVAL;
-        Bullet bullet = new Bullet(x + width / 2 - Bullet.WIDTH / 2, y + height, BULLET_SPEED, BULLET_DAMAGE, false);
+        fireCooldown = GameConfig.SHOOTING_ENEMY_FIRE_INTERVAL;
+        Bullet bullet = new Bullet(x + width / 2 - Bullet.WIDTH / 2, y + height,
+                GameConfig.ENEMY_BULLET_SPEED, GameConfig.BULLET_DAMAGE, false);
         return List.of(bullet);
     }
 }

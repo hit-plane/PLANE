@@ -7,19 +7,18 @@ import cn.edu.csu.plane.util.GameConfig;
  */
 public class MovingEnemy extends Enemy {
 
-    private static final double SWAY_SPEED = 130;   // 横向摆动速度
-
     private double direction = 1;
 
     public MovingEnemy(double x, double y) {
-        super(x, y, 50, 50, EnemyType.MOVING, 1, 150);
-        this.velY = 110;
+        super(x, y, GameConfig.ENEMY_SIZE, GameConfig.ENEMY_SIZE,
+                EnemyType.MOVING, GameConfig.MOVING_ENEMY_HEALTH, GameConfig.MOVING_ENEMY_SCORE);
+        this.velY = GameConfig.MOVING_ENEMY_SPEED;
     }
 
     @Override
     protected void movePattern(double deltaTime) {
         // 横着走，撞到窗口两边就掉头
-        x += SWAY_SPEED * direction * deltaTime;
+        x += GameConfig.MOVING_ENEMY_SWAY_SPEED * direction * deltaTime;
         if (x < 0) {
             x = 0;
             direction = 1;

@@ -3,12 +3,18 @@ package cn.edu.csu.plane.model;
 import cn.edu.csu.plane.util.GameConfig;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
+/**
+ * 玩家战机：血量、火力、射击节奏、无敌帧与护盾。
+ * 位置由控制层的位移指令驱动（不是按速度自动前进），四边夹紧在战场内。
+ */
 public class Player extends Entity {
 
-    private static final double BULLET_SPEED = 600;   // 玩家子弹比敌弹快
-    private static final double INVINCIBLE_TIME = 1.0;
+    /** 玩家子弹速度：保证子弹恰好在一个射击间隔内飞完一屏（时间 × 速度 = 距离），
+     *  即子弹出屏时刻与下一发子弹生成时刻一致，不会出现同屏两颗玩家弹。 */
+    private static final double BULLET_SPEED = GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL;
 
     private int health;
     private int maxHealth;
@@ -23,7 +29,7 @@ public class Player extends Entity {
         this.maxHealth = GameConfig.DEFAULT_HEALTH;
         this.health = maxHealth;
         this.firePower = 1;
-        this.fireRate = 0.5;
+        this.fireRate = GameConfig.PLAYER_FIRE_INTERVAL;
         this.fireCooldown = 0;
         this.invincibleTimer = 0;
         this.shielded = false;
@@ -54,6 +60,13 @@ public class Player extends Entity {
         }
     }
 
+    /** 把战机放到指定坐标并夹紧在战场内（开局与重开时复位用）。 */
+    @Override
+    public void moveTo(double x, double y) {
+        super.moveTo(x, y);
+        move(0, 0);   // 复用四边夹紧逻辑
+    }
+
     /** 冷却结束了没，结束了才能开下一枪。 */
     public boolean isReadyToShoot() {
         return fireCooldown <= 0;
@@ -61,24 +74,27 @@ public class Player extends Entity {
 
     /**
      * 开火，返回这一枪打出去的子弹。
-     * 火力 1 级单发，被火力强化堆到 2 级以上就是左右各一发。
+     * 火力 1 级单发，2 级及以上左右各一发。
      * 外面（GameModelImpl）拿这个返回值往 bullets 里一塞就行，开火后自动进冷却。
      */
     public List<Bullet> shoot() {
         fireCooldown = fireRate;
 
-        List<Bullet> shots = new ArrayList<>();
         if (firePower <= 1) {
-            shots.add(new Bullet(x + width / 2 - Bullet.WIDTH / 2, y, -BULLET_SPEED, 1, true));
-        } else {
-            shots.add(new Bullet(x + 8, y, -BULLET_SPEED, 1, true));
-            shots.add(new Bullet(x + width - 8 - Bullet.WIDTH, y, -BULLET_SPEED, 1, true));
+            return List.of(new Bullet(x + width / 2 - Bullet.WIDTH / 2, y, -BULLET_SPEED, 1, true));
         }
+        List<Bullet> shots = new ArrayList<>(2);
+        shots.add(new Bullet(x + 8, y, -BULLET_SPEED, 1, true));
+        shots.add(new Bullet(x + width - 8 - Bullet.WIDTH, y, -BULLET_SPEED, 1, true));
         return shots;
     }
 
+    /**
+     * 受击结算，优先级链：护盾 → 无敌帧 → 扣血。
+     * 有盾则消耗盾且不进入无敌（盾是独立的一次资源）；无敌期间伤害被完全忽略且
+     * 不刷新计时（1 秒是硬上限，不能靠连续受击延长）。
+     */
     public void takeDamage(int damage) {
-        // 有盾先拿盾顶掉这一次，盾只挡一下
         if (shielded) {
             shielded = false;
             return;
@@ -86,7 +102,7 @@ public class Player extends Entity {
 
         if (invincibleTimer <= 0) {
             health -= damage;
-            invincibleTimer = INVINCIBLE_TIME;
+            invincibleTimer = GameConfig.PLAYER_INVINCIBLE_TIME;
             if (health <= 0) {
                 health = 0;
                 alive = false;
@@ -98,8 +114,9 @@ public class Player extends Entity {
         health = Math.min(health + amount, maxHealth);
     }
 
+    /** 火力强化：升到上限后不再累加，避免出现既无效果又无限增长的等级。 */
     public void enhanceFirePower() {
-        firePower++;
+        firePower = Math.min(firePower + 1, GameConfig.MAX_FIRE_POWER);
     }
 
     public void activateShield() {

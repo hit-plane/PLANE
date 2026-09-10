@@ -26,7 +26,7 @@ class PlayerTest {
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getMaxHealth());
         assertEquals(1, player.getFirePower());
-        assertEquals(0.5, player.getFireRate(), 0.001);
+        assertEquals(GameConfig.PLAYER_FIRE_INTERVAL, player.getFireRate(), 0.001);
         assertTrue(player.isAlive());
         assertFalse(player.isShielded());
         assertFalse(player.isInvincible());
@@ -62,7 +62,7 @@ class PlayerTest {
         Bullet b = shots.get(0);
         assertTrue(b.isPlayerBullet());
         assertEquals(1, b.getDamage());
-        assertEquals(-600, b.getVelY(), 0.001);
+        assertEquals(-GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL, b.getVelY(), 0.001);
         assertEquals(122, b.getX(), 0.001); // 100 + 50/2 - 6/2
         assertEquals(100, b.getY(), 0.001);
 
@@ -83,14 +83,14 @@ class PlayerTest {
         player.shoot();
         assertFalse(player.isReadyToShoot());
 
-        player.update(0.5); // fireCooldown 0.5 -> 0
+        player.update(GameConfig.PLAYER_FIRE_INTERVAL); // 冷却走完
         assertTrue(player.isReadyToShoot());
     }
 
     @Test
     void takeDamageReducesHealthAndGrantsInvincibility() {
-        player.takeDamage(1);
-        assertEquals(GameConfig.DEFAULT_HEALTH - 1, player.getHealth());
+        player.takeDamage(GameConfig.BULLET_DAMAGE);
+        assertEquals(GameConfig.DEFAULT_HEALTH - GameConfig.BULLET_DAMAGE, player.getHealth());
         assertTrue(player.isInvincible());
     }
 
@@ -114,7 +114,7 @@ class PlayerTest {
     @Test
     void shieldBlocksOneHit() {
         player.activateShield();
-        player.takeDamage(5);
+        player.takeDamage(50);
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
         assertFalse(player.isShielded()); // 盾只挡一下
     }
@@ -130,29 +130,43 @@ class PlayerTest {
 
     @Test
     void healDoesNotExceedMax() {
-        player.takeDamage(3);
+        player.takeDamage(GameConfig.BULLET_DAMAGE);
         player.heal(1);
-        assertEquals(GameConfig.DEFAULT_HEALTH - 2, player.getHealth());
+        assertEquals(GameConfig.DEFAULT_HEALTH - GameConfig.BULLET_DAMAGE + 1, player.getHealth());
 
-        player.heal(100);
+        player.heal(10000);
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
     }
 
     @Test
-    void enhanceFirePowerIncrements() {
+    void enhanceFirePowerIsCappedAtMax() {
         player.enhanceFirePower();
         assertEquals(2, player.getFirePower());
-        player.enhanceFirePower();
-        assertEquals(3, player.getFirePower());
+        player.enhanceFirePower();          // 已到上限
+        assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower());
+
+        // 到上限后仍是双发，且不会因为等级虚高而变化
+        assertEquals(2, player.shoot().size());
     }
 
     @Test
     void diesWhenHealthReachesZero() {
-        for (int i = 0; i < GameConfig.DEFAULT_HEALTH; i++) {
-            player.takeDamage(1);
+        int expectedHits = GameConfig.DEFAULT_HEALTH / GameConfig.COLLISION_DAMAGE;  // 100 / 20 = 5，正好归零
+        int hits = 0;
+        while (player.isAlive() && hits < 100) {
+            player.takeDamage(GameConfig.COLLISION_DAMAGE);
             player.update(2.0); // 跳过无敌帧
+            hits++;
         }
         assertFalse(player.isAlive());
         assertEquals(0, player.getHealth());
+        assertEquals(expectedHits, hits);
+    }
+
+    @Test
+    void moveToClampsInsideBattlefield() {
+        player.moveTo(-500, 9999);
+        assertEquals(0, player.getX(), 0.001);
+        assertEquals(GameConfig.WINDOW_HEIGHT - player.getHeight(), player.getY(), 0.001);
     }
 }

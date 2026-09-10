@@ -35,6 +35,12 @@ public abstract class Entity {
         y += velY * deltaTime;
     }
 
+    /** 把实体直接放到指定坐标（开局复位、重开重置用），不改速度。 */
+    public void moveTo(double x, double y) {
+        this.x = x;
+        this.y = y;
+    }
+
     /** 是否已经飞出窗口上下边界（子弹、敌机、道具用来判断自己该不该销毁）。 */
     protected boolean isOutsideScreen() {
         return y + height < 0 || y > GameConfig.WINDOW_HEIGHT;
