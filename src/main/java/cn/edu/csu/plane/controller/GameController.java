@@ -4,6 +4,7 @@ import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameStatus;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameView;
+import javafx.scene.Scene;
 
 /**
  * 主控制器：驱动游戏主循环，协调模型（Model）与视图（View），并管理状态流转。
@@ -24,6 +25,18 @@ public class GameController {
     public GameController(GameModel model, GameView view) {
         this.model = model;
         this.view = view;
+    }
+
+    /**
+     * 把键盘事件绑到控制器自己持有的那个 {@link InputHandler} 上。
+     *
+     * <p>按键状态（上/下/左/右）是 {@code InputHandler} 的实例字段，谁绑定、谁读取
+     * 必须是同一个对象。调用方另 new 一个 {@code InputHandler} 去 attach 场景，
+     * 绑上的是另一个对象的状态，主循环读到的永远是 0，方向键与 WASD 会全部失灵
+     * —— 所以绑定入口只留这一个，由持有者绑自己读的那个实例。</p>
+     */
+    public void attachInput(Scene scene) {
+        input.attach(scene);
     }
 
     /** 启动游戏主循环（进入一局）。 */

@@ -1,7 +1,6 @@
 package cn.edu.csu.plane;
 
 import cn.edu.csu.plane.controller.GameController;
-import cn.edu.csu.plane.controller.InputHandler;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameModelImpl;
 import cn.edu.csu.plane.util.GameConfig;
@@ -27,8 +26,9 @@ public class PlaneApp extends Application {
         GameView view = new GameView();
         GameController controller = new GameController(model, view);
 
-        InputHandler input = new InputHandler();
-        input.attach(scene);
+        // 必须让 controller 绑定它自己持有的输入实例：InputHandler 的按键状态是实例字段，
+        // 在别处 new 一个再 attach，绑的是另一个对象的状态，主循环读到的永远是 0。
+        controller.attachInput(scene);
         // 暂停键（P）与失焦自动暂停/恢复（F12）
         // 必须用 addEventHandler 追加：setOnKeyPressed 是"单值"处理器，
         // 会把 InputHandler.attach 装的移动键监听整个顶掉，导致 WASD/方向键失效。
