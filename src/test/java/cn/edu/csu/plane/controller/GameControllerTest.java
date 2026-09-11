@@ -8,12 +8,19 @@ import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.Player;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameView;
+import javafx.application.Platform;
 import javafx.scene.input.KeyCode;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -41,12 +48,66 @@ class GameControllerTest {
     private FakeFrameLoop loop;
     private GameController controller;
 
+    /**
+     * GameView 的构造会 new 一个 JavaFX Canvas，必须先起 JavaFX 工具箱，
+     * 否则报 "Internal graphics not initialized yet"。测试不打开任何窗口，
+     * 整类跑完统一关掉工具箱，免得 Application Thread 挂着不退。
+     */
+    @BeforeAll
+    static void startJavaFxToolkit() {
+        try {
+            Platform.startup(() -> { });
+        } catch (IllegalStateException alreadyStarted) {
+            // 同一个 JVM 里已经被别的测试类起过了，直接用
+        }
+    }
+
+    @AfterAll
+    static void stopJavaFxToolkit() {
+        Platform.exit();
+    }
+
     @BeforeEach
     void setUp() {
         model = new FakeModel();
-        view = new RecordingView();
+        view = onFxThread(RecordingView::new);
         loop = new FakeFrameLoop();
         controller = new GameController(model, view, loop);
+    }
+
+    /**
+     * 在 FX 应用线程上建对象，并等它建完再返回。
+     * GameView 的构造里会 new 一个 Canvas，JavaFX 对 Canvas 有线程校验，
+     * 直接在测试线程上 new 会抛 "Not on FX application thread"。
+     */
+    private static <T> T onFxThread(Supplier<T> supplier) {
+        if (Platform.isFxApplicationThread()) {
+            return supplier.get();
+        }
+        AtomicReference<T> result = new AtomicReference<>();
+        AtomicReference<RuntimeException> failure = new AtomicReference<>();
+        CountDownLatch done = new CountDownLatch(1);
+        Platform.runLater(() -> {
+            try {
+                result.set(supplier.get());
+            } catch (RuntimeException e) {
+                failure.set(e);
+            } finally {
+                done.countDown();
+            }
+        });
+        try {
+            if (!done.await(10, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("等 JavaFX 线程建视图超时");
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException("等 JavaFX 线程建视图被中断", e);
+        }
+        if (failure.get() != null) {
+            throw failure.get();
+        }
+        return result.get();
     }
 
     /** 推进一帧，并让合成时钟往前走一帧。 */
@@ -468,7 +529,8 @@ class GameControllerTest {
         private List<Item> lastItems;
 
         @Override
-        public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items) {
+        public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
+                           int score, int level, int highScore, GameStatus status) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
@@ -477,7 +539,7 @@ class GameControllerTest {
         }
 
         @Override
-        public void showGameOver(long score) {
+        public void showGameOver(GameStatus status, long score) {
             showGameOverCount++;
             lastShownScore = score;
         }

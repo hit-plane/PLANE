@@ -16,6 +16,9 @@ public class Player extends Entity {
      *  即子弹出屏时刻与下一发子弹生成时刻一致，不会出现同屏两颗玩家弹。 */
     private static final double BULLET_SPEED = GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL;
 
+    /** 机翼两侧留出的最小边距（像素）：多发子弹从这儿开始往机翼中间排，不会贴着图边飞出去。 */
+    private static final double WING_MARGIN = 8;
+
     private int health;
     private int maxHealth;
     private int firePower;
@@ -95,19 +98,28 @@ public class Player extends Entity {
     }
 
     /**
-     * 开火，返回这一枪打出去的子弹。
-     * 火力 1 级单发，2 级及以上左右各一发。
-     * 外面（GameModelImpl）拿这个返回值往 bullets 里一塞就行，开火后自动进冷却。
+     * 开火，返回这一枪打出去的子弹：火力几级就打几发，最多 {@link GameConfig#MAX_FIRE_POWER} 发。
+     *
+     * <p>1 级机头正中一发；2 级及以上把 n 发等间距铺在左右机翼之间，所以 2 级恰好是
+     * "左右各一发"，等级越高弹幕越宽。子弹伤害不随等级变——提火力靠的是多发覆盖，
+     * 不是单发变强，这样每发子弹的伤害账目始终是 1 点。</p>
+     *
+     * <p>外面（GameModelImpl）拿这个返回值往 bullets 里一塞就行，开火后自动进冷却。</p>
      */
     public List<Bullet> shoot() {
         fireCooldown = fireRate;
 
-        if (firePower <= 1) {
+        int shotsToFire = Math.max(1, Math.min(firePower, GameConfig.MAX_FIRE_POWER));
+        if (shotsToFire == 1) {
             return List.of(new Bullet(x + width / 2 - Bullet.WIDTH / 2, y, -BULLET_SPEED, 1, true));
         }
-        List<Bullet> shots = new ArrayList<>(2);
-        shots.add(new Bullet(x + 8, y, -BULLET_SPEED, 1, true));
-        shots.add(new Bullet(x + width - 8 - Bullet.WIDTH, y, -BULLET_SPEED, 1, true));
+
+        // 从"左机翼 + 边距"等间距排到"右机翼 - 边距"；n = 2 时正好落回左右各一发
+        double step = (width - WING_MARGIN * 2 - Bullet.WIDTH) / (shotsToFire - 1);
+        List<Bullet> shots = new ArrayList<>(shotsToFire);
+        for (int i = 0; i < shotsToFire; i++) {
+            shots.add(new Bullet(x + WING_MARGIN + step * i, y, -BULLET_SPEED, 1, true));
+        }
         return shots;
     }
 

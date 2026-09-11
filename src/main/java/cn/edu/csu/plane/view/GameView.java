@@ -9,11 +9,13 @@ import cn.edu.csu.plane.model.ItemType;
 import cn.edu.csu.plane.model.Player;
 import cn.edu.csu.plane.util.AssetLoader;
 import cn.edu.csu.plane.util.GameConfig;
+import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
 import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.TextAlignment;
 
 import java.util.List;
 
@@ -22,16 +24,24 @@ import java.util.List;
  * 玩家飞机与子弹支持换肤（皮肤由主界面选择后经 {@link #setPlayerSkin} /
  * {@link #setPlayerBulletSkin} 注入）。
  *
- * <p>贴图旋转角度与目标高度集中在此，作为可调项：不同素材的原始朝向不同，
+ * <p>贴图旋转角度集中在此，作为可调项：不同素材的原始朝向不同，
  * 若画面朝向不对，改对应的角度常量即可。</p>
+ *
+ * <p>贴图的渲染高度不再各自写死，而是直接取模型侧的碰撞盒尺寸（已经含
+ * {@link GameConfig#ICON_SCALE} 图标缩放）。两边同源的好处是：调大图标时
+ * 只要动配置里的 {@code icon.scale}，画的图和判定的框一起变大，不会错位。</p>
  */
 public class GameView {
 
-    // ---------- 渲染目标高度（像素），宽度按比例自动 ----------
-    private static final double PLAYER_H = 50;
-    private static final double ENEMY_NORMAL_H = 40;
-    private static final double ENEMY_H = 50;
-    private static final double BULLET_H = 24;
+    // ---------- 渲染目标高度（像素），宽度按贴图比例自动 ----------
+    private static final double PLAYER_H = GameConfig.PLAYER_SIZE;
+    private static final double ENEMY_NORMAL_H = GameConfig.NORMAL_ENEMY_SIZE;
+    private static final double ENEMY_H = GameConfig.ENEMY_SIZE;
+    /** 子弹贴图高度：原始 24 px × 图标缩放，和子弹碰撞盒一起放大。 */
+    private static final double BULLET_H = 24 * GameConfig.ICON_SCALE;
+
+    /** 道具圈里的字（火/炸/盾/血）字号：跟着道具一起放大。 */
+    private static final double ITEM_LABEL_FONT_SIZE = 14 * GameConfig.ICON_SCALE;
 
     // ---------- 旋转角度（度，顺时针） ----------
     private static final double ENEMY3_ROTATION = 90;   // 剑刃向下（俯冲机）
@@ -183,9 +193,12 @@ public class GameView {
             gc.setFill(colorOf(item.getType()));
             gc.fillOval(x, y, w, h);
 
+            // 字画在圆心：对齐方式按圆心算，省得跟着半径改偏移量
             gc.setFill(Color.WHITE);
-            gc.setFont(Font.font("SansSerif", 14));
-            gc.fillText(labelOf(item.getType()), x + w / 2 - 5, y + h / 2 + 5);
+            gc.setFont(Font.font("SansSerif", ITEM_LABEL_FONT_SIZE));
+            gc.setTextAlign(TextAlignment.CENTER);
+            gc.setTextBaseline(VPos.CENTER);
+            gc.fillText(labelOf(item.getType()), x + w / 2, y + h / 2);
         }
     }
 

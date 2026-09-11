@@ -1,13 +1,18 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.GameConfig;
+
 /**
  * 子弹：区分玩家子弹与敌方子弹，携带伤害值，沿竖直方向飞行。
  */
 public class Bullet extends Entity {
 
-    /** 子弹尺寸。之前这里传的是 0，碰撞盒面积为 0，永远判定不上，所以单独拎出来当常量。 */
-    public static final double WIDTH = 6;
-    public static final double HEIGHT = 14;
+    /**
+     * 子弹碰撞盒：原始尺寸 × 图标缩放，和贴图一起放大 50%。
+     * 之前这里传的是 0，碰撞盒面积为 0，永远判定不上，所以单独拎出来当常量。
+     */
+    public static final double WIDTH = 6 * GameConfig.ICON_SCALE;
+    public static final double HEIGHT = 14 * GameConfig.ICON_SCALE;
 
     private final int damage;
     private final boolean playerBullet;

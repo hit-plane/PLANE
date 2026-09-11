@@ -47,7 +47,7 @@ class ShootingEnemyTest {
         assertFalse(b.isPlayerBullet());
         assertEquals(GameConfig.BULLET_DAMAGE, b.getDamage());
         assertEquals(GameConfig.ENEMY_BULLET_SPEED, b.getVelY(), 0.001);
-        assertEquals(122, b.getX(), 0.001); // 100 + 50/2 - 6/2
+        assertEquals(100 + GameConfig.ENEMY_SIZE / 2 - Bullet.WIDTH / 2, b.getX(), 0.001); // 机头正中
         assertEquals(e.getY() + GameConfig.ENEMY_SIZE, b.getY(), 0.001); // 机头下方
     }
 

@@ -227,9 +227,9 @@ class GameModelImplTest {
 
     // ---------------- 道具（F10） ----------------
 
-    /** 道具掉落按 20% 概率：固定种子下多次击毁中只有一部分掉落。 */
+    /** 道具掉落按 50% 概率：固定种子下多次击毁中大约一半掉落。 */
     @Test
-    void itemDropRateIsAboutOneFifth() throws Exception {
+    void itemDropRateIsAboutHalf() throws Exception {
         model.initGame();
         Method dropItem = GameModelImpl.class.getDeclaredMethod("dropItem", Enemy.class);
         dropItem.setAccessible(true);
@@ -241,9 +241,28 @@ class GameModelImplTest {
             dropItem.invoke(model, new NormalEnemy(100, 100));
             if (model.getItems().size() > before) drops++;
         }
-        // 20% ± 5% 的宽区间，避免固定种子造成的偶然偏差导致偶发失败
-        assertTrue(drops > trials * 0.15 && drops < trials * 0.25,
-                "1000 次击毁应掉约 200 件，实际 " + drops);
+        // 50% ± 5% 的宽区间，避免固定种子造成的偶然偏差导致偶发失败
+        assertTrue(drops > trials * 0.45 && drops < trials * 0.55,
+                "1000 次击毁应掉约 500 件，实际 " + drops);
+    }
+
+    /** 掉落的道具里火力强化占大头（item.firepower.rate），不是四选一均分。 */
+    @Test
+    void firepowerIsTheMostFrequentDrop() throws Exception {
+        model.initGame();
+        Method dropItem = GameModelImpl.class.getDeclaredMethod("dropItem", Enemy.class);
+        dropItem.setAccessible(true);
+
+        int trials = 2000;
+        for (int i = 0; i < trials; i++) {
+            dropItem.invoke(model, new NormalEnemy(100, 100));
+        }
+
+        List<Item> dropped = model.getItems();
+        long firepower = dropped.stream().filter(item -> item.getType() == ItemType.FIREPOWER).count();
+        assertFalse(dropped.isEmpty(), "2000 次击毁不该一件都不掉");
+        assertTrue(firepower > dropped.size() / 2.0,
+                "火力强化应占掉落的一半以上，实际 " + firepower + "/" + dropped.size());
     }
 
     /** 全屏炸弹：清掉全部敌机与敌弹、按各机分值补分，且不动玩家自己的子弹。 */
@@ -286,9 +305,11 @@ class GameModelImplTest {
         assertTrue(player.isShielded());
 
         applyItem.invoke(model, ItemType.FIREPOWER);
-        assertEquals(2, player.getFirePower());
-        applyItem.invoke(model, ItemType.FIREPOWER);
-        assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower());
+        assertEquals(2, player.getFirePower(), "吃一个火力道具应升到 2 级");
+        for (int level = 2; level < GameConfig.MAX_FIRE_POWER; level++) {
+            applyItem.invoke(model, ItemType.FIREPOWER);
+        }
+        assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower(), "吃到上限后不再往上加");
     }
 
     /**

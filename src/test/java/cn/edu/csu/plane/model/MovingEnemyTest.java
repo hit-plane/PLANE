@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * {@link MovingEnemy} 的单元测试：覆盖构造属性、向右摆动下落与右边界掉头。
+ * 边界断言一律用 {@link GameConfig#ENEMY_SIZE} 表示，不把机宽写死。
  */
 class MovingEnemyTest {
 
@@ -16,6 +17,7 @@ class MovingEnemyTest {
         assertEquals(EnemyType.MOVING, e.getType());
         assertEquals(1, e.getHealth());
         assertEquals(150, e.getScore());
+        assertEquals(GameConfig.ENEMY_SIZE, e.getWidth(), 0.001);
         assertEquals(110, e.getVelY(), 0.001);
         assertTrue(e.isAlive());
     }
@@ -30,13 +32,14 @@ class MovingEnemyTest {
 
     @Test
     void turnsAroundAtRightBoundary() {
+        double size = GameConfig.ENEMY_SIZE;
         MovingEnemy e = new MovingEnemy(GameConfig.WINDOW_WIDTH - 20, 100);
         e.update(1.0);
-        // x = 880 + 130 = 1010，超过右边界，被夹到 850 并掉头
-        assertEquals(GameConfig.WINDOW_WIDTH - 50, e.getX(), 0.001);
+        // 向右摆 130 px 就顶到右边界，被夹到"窗口宽 - 机宽"并掉头
+        assertEquals(GameConfig.WINDOW_WIDTH - size, e.getX(), 0.001);
 
         e.update(1.0);
         // 掉头后向左移动
-        assertEquals(GameConfig.WINDOW_WIDTH - 50 - 130, e.getX(), 0.001);
+        assertEquals(GameConfig.WINDOW_WIDTH - size - 130, e.getX(), 0.001);
     }
 }

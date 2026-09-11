@@ -12,11 +12,13 @@ import java.util.Random;
  */
 public class GameModelImpl implements GameModel {
 
-    /** 玩家尺寸与出生点：战场底部居中（GWT-01）。 */
-    private static final double PLAYER_WIDTH = 50;
-    private static final double PLAYER_HEIGHT = 50;
-    private static final double PLAYER_START_X = (GameConfig.WINDOW_WIDTH - PLAYER_WIDTH) / 2.0;
-    private static final double PLAYER_START_Y = GameConfig.WINDOW_HEIGHT - PLAYER_HEIGHT - 20;
+    /** 玩家尺寸与出生点：战场底部居中（GWT-01）。尺寸来自配置，已含图标缩放。 */
+    private static final double PLAYER_SIZE = GameConfig.PLAYER_SIZE;
+    private static final double PLAYER_START_X = (GameConfig.WINDOW_WIDTH - PLAYER_SIZE) / 2.0;
+    private static final double PLAYER_START_Y = GameConfig.WINDOW_HEIGHT - PLAYER_SIZE - 20;
+
+    /** 非火力道具：火力强化之外的三种，掉落时在这三个里等概率挑（F10）。 */
+    private static final ItemType[] OTHER_ITEM_TYPES = {ItemType.BOMB, ItemType.SHIELD, ItemType.HEAL};
 
     private final GameState gameState;
     private final Player player;
@@ -44,7 +46,7 @@ public class GameModelImpl implements GameModel {
     /** 随机源与存档都可注入；测试把存档指到临时目录，免得往工作目录写文件。 */
     GameModelImpl(Random random, HighScoreStore highScoreStore) {
         this.gameState = new GameState();
-        this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_WIDTH, PLAYER_HEIGHT);
+        this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_SIZE, PLAYER_SIZE);
         this.random = random;
         this.highScoreStore = highScoreStore;
         this.highScore = highScoreStore.load();
@@ -143,7 +145,10 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 关卡越高，敌机出得越密（F11 难度递增）。 */
+    /**
+     * 关卡越高，敌机出得越密（F11 难度递增）。
+     * 起始间隔比 v1.0 定的 2.0 秒更短，同屏敌机数大约翻一倍——怪密度整体上调。
+     */
     private double currentSpawnInterval() {
         double interval = GameConfig.SPAWN_INTERVAL_BASE
                 - (gameState.getLevel() - 1) * GameConfig.SPAWN_INTERVAL_STEP;
@@ -283,14 +288,24 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 击毁敌机时按概率掉一种随机道具（F10）。 */
+    /** 击毁敌机时按概率掉一件道具（F10）。 */
     private void dropItem(Enemy enemy) {
         if (random.nextDouble() >= GameConfig.ITEM_DROP_RATE) {
             return;
         }
-        ItemType[] types = ItemType.values();
-        ItemType type = types[random.nextInt(types.length)];
-        items.add(new Item(enemy.getX(), enemy.getY(), type));
+        items.add(new Item(enemy.getX(), enemy.getY(), randomItemType()));
+    }
+
+    /**
+     * 掷道具类型：先按 {@code item.firepower.rate} 决定是不是"火力强化"，
+     * 不是的话再在炸弹/护盾/回血三种里等概率挑一个。
+     * 所以火力强化是四种道具里最常见的一种，不会出现"想升火力却老掉血包"（Q6）。
+     */
+    private ItemType randomItemType() {
+        if (random.nextDouble() < GameConfig.ITEM_FIREPOWER_RATE) {
+            return ItemType.FIREPOWER;
+        }
+        return OTHER_ITEM_TYPES[random.nextInt(OTHER_ITEM_TYPES.length)];
     }
 
     /** 道具即时生效：炸弹清屏、护盾挡一次、回血、火力强化升双发（F10）。 */

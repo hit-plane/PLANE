@@ -11,8 +11,14 @@ public class GameState {
     /** 每升 1 关所需的累计得分（SRS F11：每 1000 分升 1 关）。 */
     public static final int SCORE_PER_LEVEL = GameConfig.SCORE_PER_LEVEL;
 
-    /** 关卡上限：防止连续大额加分（如全屏炸弹）把关卡推到无意义的高度。 */
-    private static final int MAX_LEVEL = 10;
+    /**
+     * 关卡上限：防止连续大额加分（如全屏炸弹）把关卡推到无意义的高度。
+     *
+     * <p>对外可见是为了让"分数上限"能跟它对账：{@code MAX_LEVEL × SCORE_PER_LEVEL}
+     * 正好等于配置里的 {@link GameConfig#VICTORY_SCORE}（10 × 1000 = 10000），
+     * 也就是打满 10 关才算通关。</p>
+     */
+    public static final int MAX_LEVEL = 10;
 
     private GameStatus status;
     private long score;

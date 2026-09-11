@@ -11,14 +11,19 @@ import static org.junit.jupiter.api.Assertions.*;
 /**
  * {@link Player} 的单元测试：覆盖初始状态、移动边界、射击、冷却、受伤/无敌帧、
  * 护盾、治疗、火力强化与死亡判定。
+ *
+ * <p>这一层故意用 50×50 的自造机体，跟游戏里配置的玩家尺寸解耦：
+ * 射击落点按"机身宽 50 + {@link Bullet#WIDTH}"算，子弹变宽时断言跟着走。</p>
  */
 class PlayerTest {
+
+    private static final double BODY = 50;
 
     private Player player;
 
     @BeforeEach
     void setUp() {
-        player = new Player(100, 100, 50, 50);
+        player = new Player(100, 100, BODY, BODY);
     }
 
     @Test
@@ -63,7 +68,7 @@ class PlayerTest {
         assertTrue(b.isPlayerBullet());
         assertEquals(1, b.getDamage());
         assertEquals(-GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL, b.getVelY(), 0.001);
-        assertEquals(122, b.getX(), 0.001); // 100 + 50/2 - 6/2
+        assertEquals(100 + BODY / 2 - Bullet.WIDTH / 2, b.getX(), 0.001); // 机头正中
         assertEquals(100, b.getY(), 0.001);
 
         assertFalse(player.isReadyToShoot()); // 开火后进入冷却
@@ -75,7 +80,7 @@ class PlayerTest {
         List<Bullet> shots = player.shoot();
         assertEquals(2, shots.size());
         assertEquals(108, shots.get(0).getX(), 0.001); // x + 8
-        assertEquals(136, shots.get(1).getX(), 0.001); // x + width - 8 - Bullet.WIDTH
+        assertEquals(100 + BODY - 8 - Bullet.WIDTH, shots.get(1).getX(), 0.001); // x + 宽 - 8 - 弹宽
     }
 
     @Test
@@ -138,15 +143,39 @@ class PlayerTest {
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
     }
 
+    /** 火力上限 5 级：每吃一个升一级，每一级都真的多打出一发；到顶后不再往上加。 */
     @Test
     void enhanceFirePowerIsCappedAtMax() {
-        player.enhanceFirePower();
-        assertEquals(2, player.getFirePower());
+        for (int level = 2; level <= GameConfig.MAX_FIRE_POWER; level++) {
+            player.enhanceFirePower();
+            assertEquals(level, player.getFirePower());
+            assertEquals(level, player.shoot().size(), "火力 " + level + " 级就该打出 " + level + " 发");
+        }
+
         player.enhanceFirePower();          // 已到上限
         assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower());
+        assertEquals(GameConfig.MAX_FIRE_POWER, player.shoot().size(), "到顶后仍是满级弹幕，不会无限加");
+    }
 
-        // 到上限后仍是双发，且不会因为等级虚高而变化
-        assertEquals(2, player.shoot().size());
+    /** 多发子弹等间距铺在左右机翼之间：既不挤在同一点，也不越出机身外。 */
+    @Test
+    void shootSpreadsBulletsAcrossTheWings() {
+        for (int level = 2; level <= GameConfig.MAX_FIRE_POWER; level++) {
+            player.enhanceFirePower();
+        }
+
+        List<Bullet> shots = player.shoot();
+        assertEquals(GameConfig.MAX_FIRE_POWER, shots.size());
+        assertEquals(player.getX() + 8, shots.get(0).getX(), 0.001, "最左一发贴在左机翼内侧");
+
+        double previous = Double.NEGATIVE_INFINITY;
+        for (Bullet b : shots) {
+            assertTrue(b.getX() > previous, "子弹应自左向右排开，不能重叠在同一点");
+            assertTrue(b.getX() >= player.getX(), "子弹不该跑到机身左侧外面");
+            assertTrue(b.getX() + Bullet.WIDTH <= player.getX() + player.getWidth(),
+                    "子弹不该跑到机身右侧外面");
+            previous = b.getX();
+        }
     }
 
     @Test
@@ -191,7 +220,7 @@ class PlayerTest {
 
         player.enhanceFirePower();                              // 再吃一个：刷新计时，不是叠加时长
         player.update(GameConfig.FIREPOWER_DURATION - 0.5);
-        assertEquals(2, player.getFirePower(), "重新拾取后应重新开始计时");
+        assertEquals(3, player.getFirePower(), "再吃一个升到 3 级，且时限重新开始算");
 
         player.update(0.6);
         assertEquals(1, player.getFirePower(), "刷新后的时限过了照样回落单发");

@@ -77,7 +77,21 @@ class GameStateTest {
     @Test
     void levelIsCappedSoScoreCannotRunAway() {
         state.addScore(GameConfig.SCORE_PER_LEVEL * 1_000_000);
-        assertTrue(state.getLevel() <= 10, "关卡应有上限，实际为 " + state.getLevel());
+        assertEquals(GameState.MAX_LEVEL, state.getLevel(), "关卡应顶到上限，实际为 " + state.getLevel());
+    }
+
+    /**
+     * 分数上限与关卡封顶对齐：打满 {@link GameConfig#VICTORY_SCORE} 时关卡正好顶到
+     * {@link GameState#MAX_LEVEL}，也就是"打满 10 关才算通关"。
+     * 改了其中一个常量却忘了另一个，这条会红。
+     */
+    @Test
+    void victoryScoreLandsExactlyOnTheLevelCap() {
+        state.addScore(GameConfig.VICTORY_SCORE);
+        assertEquals(GameState.MAX_LEVEL, state.getLevel(),
+                "分数上限应落在关卡封顶那一级，实际关卡 " + state.getLevel());
+        assertEquals(GameState.MAX_LEVEL * GameConfig.SCORE_PER_LEVEL, GameConfig.VICTORY_SCORE,
+                "分数上限与关卡封顶要对得上账");
     }
 
     @Test
