@@ -10,7 +10,7 @@ import javafx.scene.image.Image;
 public final class SkinCatalog {
 
     public static final String[] PLANE_SKINS = {"plane1", "plane2", "plane3", "plane4"};
-    public static final String[] BULLET_SKINS = {"bullet1", "bullet2", "bullet3"};
+    public static final String[] BULLET_SKINS = {"bullet1", "bullet2", "bullet3", "bullet5"};
 
     private SkinCatalog() {
     }
