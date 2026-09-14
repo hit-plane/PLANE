@@ -11,9 +11,19 @@ import cn.edu.csu.plane.util.GameConfig;
  */
 public class BombWave extends Entity {
 
+    /** 单颗炸弹的剩余得分预算：封顶一关的分，防止高密度下连跳多关。 */
+    private int scoreBudget = GameConfig.BOMB_WAVE_SCORE_CAP;
+
     public BombWave() {
         super(0, GameConfig.WINDOW_HEIGHT, GameConfig.WINDOW_WIDTH, GameConfig.BOMB_WAVE_HEIGHT);
         this.velY = -GameConfig.BOMB_WAVE_SPEED;   // 负速度 = 向上扫
+    }
+
+    /** 从得分预算里扣一块，返回实际能加的分；预算耗尽后返回 0。 */
+    public int consumeScore(int amount) {
+        int granted = Math.min(amount, scoreBudget);
+        scoreBudget -= granted;
+        return granted;
     }
 
     @Override

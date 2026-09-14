@@ -279,8 +279,10 @@ public final class GameConfig {
     public static final double BOMB_WAVE_SPEED = getDouble("bomb.wave.speed", 900);
     /** 冲击波带在屏幕上的高度（像素）；贴图按此高度等比缩放后横向平铺。 */
     public static final double BOMB_WAVE_HEIGHT = getDouble("bomb.wave.height", 128);
-    /** 冲击波扫掉敌机时按该比例计分（0.6 = 原分值的 60%）。 */
-    public static final double BOMB_WAVE_SCORE_RATE = getDouble("bomb.wave.score.rate", 0.6);
+    /** 冲击波扫掉敌机时按该比例计分（0.4 = 原分值的 40%）。 */
+    public static final double BOMB_WAVE_SCORE_RATE = getDouble("bomb.wave.score.rate", 0.4);
+    /** 单颗炸弹（一条冲击波）的得分上限：封顶 1 关的分，防止高密度下炸弹连跳多关。 */
+    public static final int BOMB_WAVE_SCORE_CAP = getInt("bomb.wave.score.cap", SCORE_PER_LEVEL);
 
     // ---------- 背景滚动 ----------
     /** 背景纵向循环滚动速度（像素/秒），模拟飞机向前飞行。 */

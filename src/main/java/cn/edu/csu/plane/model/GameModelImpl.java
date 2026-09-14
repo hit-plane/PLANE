@@ -427,7 +427,11 @@ public class GameModelImpl implements GameModel {
                     continue;
                 }
                 enemy.setAlive(false);
-                addScore((int) (enemy.getScore() * GameConfig.BOMB_WAVE_SCORE_RATE));
+                // 得分走"炸弹预算"：单颗炸弹封顶一关的分，扫到再多敌机也不再加
+                int gained = wave.consumeScore((int) (enemy.getScore() * GameConfig.BOMB_WAVE_SCORE_RATE));
+                if (gained > 0) {
+                    addScore(gained);
+                }
             }
             for (Bullet bullet : bullets) {
                 if (bullet.isAlive() && !bullet.isPlayerBullet() && isColliding(wave, bullet)) {
