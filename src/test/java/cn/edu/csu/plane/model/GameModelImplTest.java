@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * {@link GameModelImpl} 的单元测试：覆盖整局编排逻辑——开局初始化、冻结守卫、
- * 暂停/恢复、碰撞结算与计分、炸弹清屏、结束判定。
+ * 暂停/恢复、碰撞结算与计分、炸弹冲击波、结束判定。
  *
  * <p>随机源由构造注入固定种子（同包可见构造），使机型掷点与道具掉落可复现；
  * 无种子时"是否掉落道具"不确定，因此涉及随机的断言写成区间而非确定值。
@@ -39,6 +39,13 @@ class GameModelImplTest {
         Method method = GameModelImpl.class.getDeclaredMethod(name);
         method.setAccessible(true);
         method.invoke(target);
+    }
+
+    /** 反射调用私有的单参方法。 */
+    private static void invoke(GameModelImpl target, String name, Class<?> paramType, Object arg) throws Exception {
+        Method method = GameModelImpl.class.getDeclaredMethod(name, paramType);
+        method.setAccessible(true);
+        method.invoke(target, arg);
     }
 
     private static void checkBulletEnemy(GameModelImpl target) throws Exception {
@@ -296,26 +303,38 @@ class GameModelImplTest {
         return model.getItems().size() - before;
     }
 
-    /** 全屏炸弹：清掉全部敌机与敌弹、按各机分值补分，且不动玩家自己的子弹。 */
+    /**
+     * 炸弹：拾取后生成一条从底边向上扫的冲击波，不再瞬间清屏。
+     * 波扫到的敌机按其分值的固定比例计分后消失、敌弹一并清除，玩家自己的子弹不受影响（F10）。
+     */
     @Test
-    void bombClearsBattlefieldAndScoresByEnemyValue() throws Exception {
+    void bombWaveSweepsEnemiesAndEnemyBullets() throws Exception {
         model.initGame();
 
-        model.getEnemies().add(new NormalEnemy(100, 100));   // 100 分
-        model.getEnemies().add(new MovingEnemy(200, 100));   // 150 分
-        Bullet enemyBullet = new Bullet(10, 10, 100, GameConfig.BULLET_DAMAGE, false);
-        Bullet playerBullet = new Bullet(10, 10, -100, 1, true);
+        invoke(model, "applyItem", ItemType.class, ItemType.BOMB);
+        List<BombWave> waves = model.getWaves();
+        assertEquals(1, waves.size(), "拾取炸弹应生成一条冲击波");
+
+        NormalEnemy normal = new NormalEnemy(100, 100);   // 100 分
+        MovingEnemy moving = new MovingEnemy(200, 100);   // 150 分
+        model.getEnemies().add(normal);
+        model.getEnemies().add(moving);
+        Bullet enemyBullet = new Bullet(10, 100, 100, GameConfig.BULLET_DAMAGE, false);
+        Bullet playerBullet = new Bullet(10, 100, -100, 1, true);
         model.getBullets().add(enemyBullet);
         model.getBullets().add(playerBullet);
 
-        Method clear = GameModelImpl.class.getDeclaredMethod("clearBattlefield");
-        clear.setAccessible(true);
-        clear.invoke(model);
+        // 把波带挪到与敌机/敌弹重叠处，再跑一次扫描结算
+        waves.get(0).moveTo(0, 100);
+        invoke(model, "resolveBombWaves");
 
-        assertTrue(model.getEnemies().isEmpty());
-        assertEquals(GameConfig.NORMAL_ENEMY_SCORE + GameConfig.MOVING_ENEMY_SCORE, model.getScore());
-        assertEquals(1, model.getBullets().size(), "只清敌弹，保留玩家子弹");
-        assertTrue(model.getBullets().get(0).isPlayerBullet());
+        assertFalse(normal.isAlive(), "被扫到的敌机应消失");
+        assertFalse(moving.isAlive(), "被扫到的敌机应消失");
+        int expected = (int) (GameConfig.NORMAL_ENEMY_SCORE * GameConfig.BOMB_WAVE_SCORE_RATE)
+                + (int) (GameConfig.MOVING_ENEMY_SCORE * GameConfig.BOMB_WAVE_SCORE_RATE);
+        assertEquals(expected, model.getScore(), "冲击波按比例计分");
+        assertFalse(enemyBullet.isAlive(), "敌弹一并清除");
+        assertTrue(playerBullet.isAlive(), "玩家自己的子弹不受影响");
     }
 
     /** 道具效果：回血受上限约束、护盾置位、火力强化至上限（F10）。 */

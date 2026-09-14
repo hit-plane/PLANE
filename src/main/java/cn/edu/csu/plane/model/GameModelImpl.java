@@ -25,6 +25,7 @@ public class GameModelImpl implements GameModel {
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
+    private final List<BombWave> waves = new ArrayList<>();
     private final Random random;
     private final HighScoreStore highScoreStore;
     private int highScore;
@@ -61,6 +62,7 @@ public class GameModelImpl implements GameModel {
         enemies.clear();
         bullets.clear();
         items.clear();
+        waves.clear();
         spawnTimer = 0;
     }
 
@@ -82,6 +84,7 @@ public class GameModelImpl implements GameModel {
         collectEnemyBullets();
         updateEntities(bullets, deltaTime);
         updateEntities(items, deltaTime);
+        updateEntities(waves, deltaTime);
 
         checkCollisions();
         removeDeadEntities();
@@ -102,8 +105,9 @@ public class GameModelImpl implements GameModel {
         gameState.setStatus(status);
         // 清除火力强化等临时效果，避免结算界面仍显示多发子弹
         player.clearPowerUps();
-        // 清除场上残留道具，避免结算画面仍显示飞行道具
+        // 清除场上残留道具与冲击波，避免结算画面仍显示飞行中的东西
         items.clear();
+        waves.clear();
         if (gameState.getScore() > highScore) {
             highScore = (int) gameState.getScore();
             highScoreStore.save(highScore);
@@ -130,6 +134,7 @@ public class GameModelImpl implements GameModel {
         enemies.clear();
         bullets.clear();
         items.clear();
+        waves.clear();
         spawnTimer = 0;
         gameState.setStatus(GameStatus.MENU);
     }
@@ -219,9 +224,11 @@ public class GameModelImpl implements GameModel {
         enemies.removeIf(enemy -> !enemy.isAlive());
         bullets.removeIf(bullet -> !bullet.isAlive());
         items.removeIf(item -> !item.isAlive());
+        waves.removeIf(wave -> !wave.isAlive());
     }
 
     private void checkCollisions() {
+        resolveBombWaves();
         checkBulletEnemy();
         checkBulletPlayer();
         checkPlayerEnemy();
@@ -326,20 +333,36 @@ public class GameModelImpl implements GameModel {
             case FIREPOWER -> player.enhanceFirePower();
             case HEAL -> player.heal(GameConfig.HEAL_AMOUNT);
             case SHIELD -> player.activateShield();
-            case BOMB -> clearBattlefield();
+            case BOMB -> waves.add(new BombWave());
             default -> throw new IllegalStateException("未处理的道具类型: " + type);
         }
     }
 
-    /** 全屏炸弹：清掉场上所有敌机与敌弹，并按各机分值计入得分（不掉落道具）。 */
-    private void clearBattlefield() {
-        for (Enemy enemy : enemies) {
-            if (enemy.isAlive()) {
-                addScore(enemy.getScore());
+    /**
+     * 冲击波扫过的结算：被扫到的敌机直接消失，按 {@link GameConfig#BOMB_WAVE_SCORE_RATE}
+     * 的比例计入得分（不掉道具）；被扫到的敌弹一并清除，玩家自己的子弹不受影响（F10）。
+     */
+    private void resolveBombWaves() {
+        if (waves.isEmpty()) {
+            return;
+        }
+        for (BombWave wave : waves) {
+            if (!wave.isAlive()) {
+                continue;
+            }
+            for (Enemy enemy : enemies) {
+                if (!enemy.isAlive() || !isColliding(wave, enemy)) {
+                    continue;
+                }
+                enemy.setAlive(false);
+                addScore((int) (enemy.getScore() * GameConfig.BOMB_WAVE_SCORE_RATE));
+            }
+            for (Bullet bullet : bullets) {
+                if (bullet.isAlive() && !bullet.isPlayerBullet() && isColliding(wave, bullet)) {
+                    bullet.setAlive(false);
+                }
             }
         }
-        enemies.clear();
-        bullets.removeIf(bullet -> !bullet.isPlayerBullet());
     }
 
     /** AABB 相交判定：四类碰撞共用一条判据。 */
@@ -369,6 +392,9 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public List<Item> getItems() { return items; }
+
+    @Override
+    public List<BombWave> getWaves() { return waves; }
 
     @Override
     public int getScore() { return (int) gameState.getScore(); }

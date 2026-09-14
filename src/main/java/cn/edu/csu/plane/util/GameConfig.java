@@ -226,6 +226,14 @@ public final class GameConfig {
     /** 道具触底后的闪烁时长（秒）。 */
     public static final double ITEM_FLASH_DURATION = getDouble("item.flash.duration", 3.0);
 
+    // ---------- 炸弹冲击波（F10） ----------
+    /** 冲击波从底边向上扫的速度（像素/秒）：调这个值改扫地快慢。 */
+    public static final double BOMB_WAVE_SPEED = getDouble("bomb.wave.speed", 900);
+    /** 冲击波带在屏幕上的高度（像素）；贴图按此高度等比缩放后横向平铺。 */
+    public static final double BOMB_WAVE_HEIGHT = getDouble("bomb.wave.height", 128);
+    /** 冲击波扫掉敌机时按该比例计分（0.6 = 原分值的 60%）。 */
+    public static final double BOMB_WAVE_SCORE_RATE = getDouble("bomb.wave.score.rate", 0.6);
+
     // ---------- 背景滚动 ----------
     /** 背景纵向循环滚动速度（像素/秒），模拟飞机向前飞行。 */
     public static final double BACKGROUND_SCROLL_SPEED = getDouble("background.scroll.speed", 40.0);

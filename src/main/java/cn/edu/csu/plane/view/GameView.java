@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.view;
 
+import cn.edu.csu.plane.model.BombWave;
 import cn.edu.csu.plane.model.Bullet;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.EnemyType;
@@ -73,6 +74,9 @@ public class GameView {
     private final Image healItemImage;
     private final Image shieldItemImage;
 
+    /** 炸弹冲击波贴图：按配置高度等比缩放后横向平铺。 */
+    private final Image waveImage;
+
     // 玩家皮肤（可变，默认 plane3 / bullet3）
     private Image playerImage;
     private Image playerBulletImage;
@@ -108,6 +112,7 @@ public class GameView {
         bombItemImage = AssetLoader.prepare("prop/bomb.jpg", GameConfig.ITEM_SIZE, 0);
         healItemImage = AssetLoader.prepare("prop/heal.png", GameConfig.ITEM_SIZE, 0);
         shieldItemImage = AssetLoader.prepare("prop/shield.png", GameConfig.ITEM_SIZE, 0);
+        waveImage = AssetLoader.prepare("effect/explosionWave.png", GameConfig.BOMB_WAVE_HEIGHT, 0);
 
         setPlayerSkin("plane3");
         setPlayerBulletSkin("bullet3");
@@ -127,9 +132,10 @@ public class GameView {
         playerBulletImage = SkinCatalog.loadBullet(name, BULLET_H);
     }
 
-    /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → HUD。 */
+    /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → HUD。 */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                       int score, int level, int highScore, GameStatus status, double deltaTime) {
+                       List<BombWave> waves, int score, int level, int highScore, GameStatus status,
+                       double deltaTime) {
         // 检测关卡变化（升级或重开新局），触发过渡动画
         if (lastLevel != -1 && level != lastLevel) {
             transitionLevel = level;
@@ -143,6 +149,7 @@ public class GameView {
         drawEnemies(enemies);
         drawBullets(bullets);
         drawPlayer(player);
+        drawWaves(waves);
         hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower());
 
         // 关卡过渡动画（覆盖在最上层）
@@ -276,6 +283,24 @@ public class GameView {
                 gc.setTextAlign(TextAlignment.CENTER);
                 gc.setTextBaseline(VPos.CENTER);
                 gc.fillText(labelOf(item.getType()), x + w / 2, y + h / 2);
+            }
+        }
+    }
+
+    /**
+     * 绘制炸弹冲击波：一条横贯战场的波带，贴图按 {@link GameConfig#BOMB_WAVE_HEIGHT}
+     * 等比缩放后沿横向平铺满整宽。贴图本身是"上实下透"的渐变，平铺后随波带一起向上扫。
+     */
+    private void drawWaves(List<BombWave> waves) {
+        if (waveImage == null || waves.isEmpty()) {
+            return;
+        }
+        double tileW = waveImage.getWidth();
+        double tileH = waveImage.getHeight();
+        for (BombWave wave : waves) {
+            double y = wave.getY();
+            for (double x = 0; x < GameConfig.WINDOW_WIDTH; x += tileW) {
+                gc.drawImage(waveImage, x, y, tileW, tileH);
             }
         }
     }
