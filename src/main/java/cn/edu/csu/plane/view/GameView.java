@@ -5,11 +5,11 @@ import cn.edu.csu.plane.model.Bullet;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.EnemyType;
 import cn.edu.csu.plane.model.GameStatus;
-import cn.edu.csu.plane.model.HitEffect;
 import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.ItemType;
 import cn.edu.csu.plane.model.Player;
 import cn.edu.csu.plane.util.AssetLoader;
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import javafx.geometry.VPos;
 import javafx.scene.canvas.Canvas;
@@ -85,7 +85,7 @@ public class GameView {
     private GameOverHandler gameOverHandler;
 
     // 关卡过渡动画状态
-    private int lastLevel = 0;   // 关卡最小为 1，初始 0 保证第一次开局也弹"第 1 关"
+    private int lastLevel = -1;
     private double levelTransitionTimer = 0;
     private int transitionLevel = 0;
 
@@ -133,11 +133,10 @@ public class GameView {
         playerBulletImage = SkinCatalog.loadBullet(name, BULLET_H);
     }
 
-    /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → 受击特效 → HUD。 */
+    /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → HUD（HUD 里带当前难度）。 */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                       List<BombWave> waves, List<HitEffect> hitEffects,
-                       int score, int level, int highScore, GameStatus status,
-                       double deltaTime) {
+                       List<BombWave> waves, int score, int level, int highScore, GameStatus status,
+                       Difficulty difficulty, double deltaTime) {
         // 检测关卡变化（升级或重开新局），触发过渡动画
         if (lastLevel != -1 && level != lastLevel) {
             transitionLevel = level;
@@ -152,8 +151,8 @@ public class GameView {
         drawBullets(bullets);
         drawPlayer(player);
         drawWaves(waves);
-        drawHitEffects(hitEffects);
-        hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower());
+        hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower(),
+                difficulty.getLabel());
 
         // 关卡过渡动画（覆盖在最上层）
         if (levelTransitionTimer > 0) {
@@ -165,10 +164,10 @@ public class GameView {
         }
     }
 
-    /** 一局结束：把终局状态与本局得分抛给装配层，由其弹出结算面板。 */
-    public void showGameOver(GameStatus status, long score) {
+    /** 一局结束：把终局状态、本局得分与本局难度抛给装配层，由其弹出结算面板。 */
+    public void showGameOver(GameStatus status, long score, Difficulty difficulty) {
         if (gameOverHandler != null) {
-            gameOverHandler.onGameOver(status, (int) score);
+            gameOverHandler.onGameOver(status, (int) score, difficulty);
         }
     }
 
@@ -178,7 +177,7 @@ public class GameView {
 
     @FunctionalInterface
     public interface GameOverHandler {
-        void onGameOver(GameStatus status, int score);
+        void onGameOver(GameStatus status, int score, Difficulty difficulty);
     }
 
     /**
@@ -306,59 +305,6 @@ public class GameView {
                 gc.drawImage(waveImage, x, y, tileW, tileH);
             }
         }
-    }
-
-    /**
-     * 绘制受击特效：根据特效类型选择不同的颜色与扩散速度，
-     * 以碰撞点为中心画一个随进度扩散并淡出的圆环。
-     *
-     * <ul>
-     *   <li>ENEMY_HIT — 白黄色小闪光，半径 5→20px</li>
-     *   <li>ENEMY_EXPLODE — 橙红色爆炸，半径 10→45px</li>
-     *   <li>PLAYER_HIT — 红色警示闪烁，半径 8→35px</li>
-     * </ul>
-     */
-    private void drawHitEffects(List<HitEffect> hitEffects) {
-        if (hitEffects.isEmpty()) {
-            return;
-        }
-        gc.save();
-        for (HitEffect effect : hitEffects) {
-            double progress = effect.getProgress();
-            double alpha = 1.0 - progress;   // 越往后越透明
-
-            double radius;
-            Color color;
-            switch (effect.getType()) {
-                case ENEMY_HIT -> {
-                    radius = 5 + 15 * progress;
-                    color = Color.rgb(255, 255, 180, alpha);   // 白黄色
-                }
-                case ENEMY_EXPLODE -> {
-                    radius = 10 + 35 * progress;
-                    color = Color.rgb(255, (int) (140 - 80 * progress), 0, alpha);  // 橙→红
-                }
-                case PLAYER_HIT -> {
-                    radius = 8 + 27 * progress;
-                    color = Color.rgb(255, 60, 60, alpha);     // 红色
-                }
-                default -> { continue; }
-            }
-
-            // 外圈扩散环
-            gc.setStroke(color);
-            gc.setLineWidth(2.5 * (1.0 - progress));
-            gc.strokeOval(
-                    effect.getX() - radius, effect.getY() - radius,
-                    radius * 2, radius * 2);
-
-            // 内圈填充（更淡）
-            gc.setFill(Color.color(color.getRed(), color.getGreen(), color.getBlue(), alpha * 0.3));
-            gc.fillOval(
-                    effect.getX() - radius, effect.getY() - radius,
-                    radius * 2, radius * 2);
-        }
-        gc.restore();
     }
 
     /** 把贴图按中心对齐绘制到给定坐标。 */

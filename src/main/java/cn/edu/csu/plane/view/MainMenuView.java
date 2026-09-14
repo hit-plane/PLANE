@@ -1,6 +1,7 @@
 package cn.edu.csu.plane.view;
 
 import cn.edu.csu.plane.util.AssetLoader;
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -14,9 +15,11 @@ import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
 
+import java.util.function.Consumer;
+
 /**
- * 主菜单界面：标题、开始按钮、玩家飞机皮肤与子弹皮肤的图形化选择、历史最高分。
- * 皮肤用图片按钮直接展示，选中项以蓝色边框高亮。
+ * 主菜单界面：标题、开始按钮、玩家飞机皮肤与子弹皮肤的图形化选择、难度选择、历史最高分。
+ * 皮肤用图片按钮直接展示，选中项以蓝色边框高亮；难度用一行文字按钮，高亮规则相同。
  *
  * <p>开始按钮用贴图 {@code resource/pictures/menu/start.png} 当作按钮内容，
  * 按钮自身的底色与描边全部去掉，看起来就是一张图，点击区域仍是整张图。
@@ -24,6 +27,9 @@ import javafx.scene.text.Font;
  *
  * <p>预览图与按钮尺寸都乘 {@link GameConfig#ICON_SCALE}，和游戏里的图标放大倍数保持一致，
  * 菜单上看到的机有多大，进游戏就有多大。</p>
+ *
+ * <p>难度默认选中普通档——与旧版手感一致的那一档。切换难度只是告诉装配层，
+ * 由它去刷新最高分显示（最高分按难度分档），菜单自己不碰模型。</p>
  */
 public class MainMenuView {
 
@@ -46,6 +52,16 @@ public class MainMenuView {
     private static final String IMAGE_BUTTON_STYLE =
             "-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-insets: 0; "
             + "-fx-padding: 0; -fx-cursor: hand;";
+    /** 难度文字按钮：没有图片撑尺寸，得自己定宽高，并补上文字颜色与内边距。 */
+    private static final String DIFFICULTY_BUTTON_BASE =
+            "-fx-background-insets: 0; -fx-text-fill: white; -fx-padding: 6 18 6 18; ";
+    private static final double DIFFICULTY_BUTTON_WIDTH = 96;
+    private static final double DIFFICULTY_BUTTON_HEIGHT = 40;
+    private static final double DIFFICULTY_FONT_SIZE = 18;
+
+    /** 难度选项的排列顺序：由易到难。 */
+    private static final Difficulty[] DIFFICULTIES =
+            {Difficulty.EASY, Difficulty.NORMAL, Difficulty.HARD};
 
     private final StackPane root = new StackPane();
     private final Label highScoreLabel = new Label();
@@ -53,8 +69,12 @@ public class MainMenuView {
 
     private final Button[] planeButtons;
     private final Button[] bulletButtons;
+    private final Button[] difficultyButtons = new Button[DIFFICULTIES.length];
     private int selectedPlane;
     private int selectedBullet;
+    /** 选中的难度下标，默认落在普通档上（{@link #DIFFICULTIES} 的中间一项）。 */
+    private int selectedDifficulty = 1;
+    private Consumer<Difficulty> onDifficultyChange;
 
     public MainMenuView() {
         root.setStyle("-fx-background-color: rgb(12,16,30);");
@@ -100,13 +120,35 @@ public class MainMenuView {
         bulletRow.getChildren().addAll(bulletButtons);
         bulletRow.setAlignment(Pos.CENTER);
 
-        VBox box = new VBox(20, title, startButton, planeRow, bulletRow, highScoreLabel);
+        // 难度按钮行：文字按钮，选中项与皮肤一样用蓝框高亮
+        for (int i = 0; i < difficultyButtons.length; i++) {
+            Difficulty difficulty = DIFFICULTIES[i];
+            Button button = new Button(difficulty.getLabel());
+            button.setPrefSize(DIFFICULTY_BUTTON_WIDTH, DIFFICULTY_BUTTON_HEIGHT);
+            button.setFont(Font.font("SansSerif", DIFFICULTY_FONT_SIZE));
+            button.setStyle(difficultyStyle(false));
+            int idx = i;
+            button.setOnAction(e -> selectDifficulty(idx));
+            difficultyButtons[i] = button;
+        }
+
+        Label difficultyLabel = new Label("难度");
+        difficultyLabel.setTextFill(Color.WHITE);
+        HBox difficultyRow = new HBox(10);
+        difficultyRow.getChildren().add(difficultyLabel);
+        difficultyRow.getChildren().addAll(difficultyButtons);
+        difficultyRow.setAlignment(Pos.CENTER);
+
+        // 难度排在开始按钮正下方：它是开局前最先要定的事，也离窗口下沿最远——
+        // 小屏上窗口底部可能被裁掉一截，这一行不该放在最底下（最高分标签本身没有交互，压在最下面无妨）
+        VBox box = new VBox(20, title, startButton, difficultyRow, planeRow, bulletRow, highScoreLabel);
         box.setAlignment(Pos.CENTER);
         root.getChildren().add(box);
 
-        // 默认选中 plane3 / bullet3
+        // 默认选中 plane3 / bullet3 / 普通难度
         selectPlane(2);
         selectBullet(2);
+        selectDifficulty(1);
     }
 
     /**
@@ -151,6 +193,25 @@ public class MainMenuView {
         }
     }
 
+    /**
+     * 选中某个难度并高亮，同时通知装配层刷新最高分（最高分按难度分档）。
+     * 构造期间 {@code onDifficultyChange} 还是 null，默认选中那一次不会回调。
+     */
+    private void selectDifficulty(int idx) {
+        selectedDifficulty = idx;
+        for (int i = 0; i < difficultyButtons.length; i++) {
+            difficultyButtons[i].setStyle(difficultyStyle(i == idx));
+        }
+        if (onDifficultyChange != null) {
+            onDifficultyChange.accept(DIFFICULTIES[idx]);
+        }
+    }
+
+    /** 难度按钮的样式：文字按钮的公共部分 + 选中/未选中两种底色与描边。 */
+    private static String difficultyStyle(boolean selected) {
+        return (selected ? SELECTED_STYLE : UNSELECTED_STYLE) + DIFFICULTY_BUTTON_BASE;
+    }
+
     public Node getNode() {
         return root;
     }
@@ -173,5 +234,15 @@ public class MainMenuView {
     /** 返回选中的子弹皮肤文件名（bullet1~bullet3）。 */
     public String getSelectedBulletSkin() {
         return SkinCatalog.BULLET_SKINS[selectedBullet];
+    }
+
+    /** 返回选中的难度，默认普通档。 */
+    public Difficulty getSelectedDifficulty() {
+        return DIFFICULTIES[selectedDifficulty];
+    }
+
+    /** 注册难度切换回调，由装配层绑定到"刷新最高分显示"。 */
+    public void setOnDifficultyChange(Consumer<Difficulty> onChange) {
+        this.onDifficultyChange = onChange;
     }
 }

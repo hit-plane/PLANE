@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 
 import java.util.ArrayList;
@@ -20,22 +21,18 @@ public class GameModelImpl implements GameModel {
     /** 非火力道具：火力强化之外的三种，掉落时在这三个里等概率挑（F10）。 */
     private static final ItemType[] OTHER_ITEM_TYPES = {ItemType.BOMB, ItemType.SHIELD, ItemType.HEAL};
 
-    /** 受击特效时长（秒）：敌机命中闪光 0.15s、敌机爆炸 0.35s、玩家受击 0.3s。 */
-    private static final double HIT_EFFECT_DURATION = 0.15;
-    private static final double EXPLODE_EFFECT_DURATION = 0.35;
-    private static final double PLAYER_HIT_EFFECT_DURATION = 0.3;
-
     private final GameState gameState;
     private final Player player;
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
     private final List<BombWave> waves = new ArrayList<>();
-    private final List<HitEffect> hitEffects = new ArrayList<>();
     private final Random random;
     private final HighScoreStore highScoreStore;
     private int highScore;
     private double spawnTimer;
+    /** 当前难度（F16）：默认普通档，由主菜单在开局前设定，只影响本局数值，不随重开重置。 */
+    private Difficulty difficulty = Difficulty.NORMAL;
 
     /** 生产用构造：随机源为默认种子，最高分存到工作目录下的 highscore.txt。 */
     public GameModelImpl() {
@@ -56,7 +53,8 @@ public class GameModelImpl implements GameModel {
         this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_SIZE, PLAYER_SIZE);
         this.random = random;
         this.highScoreStore = highScoreStore;
-        this.highScore = highScoreStore.load();
+        // 默认普通档：普通档的存档就是原文件本身，老存档照旧能读到（F13/F16）。
+        this.highScore = highScoreStore.forDifficulty(difficulty).load();
         this.spawnTimer = 0;
     }
 
@@ -69,7 +67,6 @@ public class GameModelImpl implements GameModel {
         bullets.clear();
         items.clear();
         waves.clear();
-        hitEffects.clear();
         spawnTimer = 0;
     }
 
@@ -92,7 +89,6 @@ public class GameModelImpl implements GameModel {
         updateEntities(bullets, deltaTime);
         updateEntities(items, deltaTime);
         updateEntities(waves, deltaTime);
-        updateHitEffects(deltaTime);
 
         checkCollisions();
         removeDeadEntities();
@@ -108,7 +104,10 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 一局结束：冻结状态，清除玩家临时效果与场上道具，并把本局成绩刷进最高分存档（F09 / F13）。 */
+    /**
+     * 一局结束：冻结状态，清除玩家临时效果与场上道具，并把本局成绩刷进最高分存档（F09 / F13）。
+     * 成绩按难度分档存（F16）：写的是当前档位那一份，不会盖掉别的档。
+     */
     private void finishGame(GameStatus status) {
         gameState.setStatus(status);
         // 清除火力强化等临时效果，避免结算界面仍显示多发子弹
@@ -116,10 +115,9 @@ public class GameModelImpl implements GameModel {
         // 清除场上残留道具与冲击波，避免结算画面仍显示飞行中的东西
         items.clear();
         waves.clear();
-        hitEffects.clear();
         if (gameState.getScore() > highScore) {
             highScore = (int) gameState.getScore();
-            highScoreStore.save(highScore);
+            highScoreStore.forDifficulty(difficulty).save(highScore);
         }
     }
 
@@ -144,7 +142,6 @@ public class GameModelImpl implements GameModel {
         bullets.clear();
         items.clear();
         waves.clear();
-        hitEffects.clear();
         spawnTimer = 0;
         gameState.setStatus(GameStatus.MENU);
     }
@@ -165,18 +162,17 @@ public class GameModelImpl implements GameModel {
     }
 
     /**
-     * 关卡越高，敌机出得越密（F11 难度递增）。
-     * 起始间隔比 v1.0 定的 2.0 秒更短，同屏敌机数大约翻一倍——怪密度整体上调。
+     * 关卡越高，敌机出得越密（F11 难度递增），难度再整体缩放这条曲线（F16）：
+     * 简单档更稀疏、困难档更密。起始间隔比 v1.0 定的 2.0 秒更短，
+     * 同屏敌机数大约翻一倍——怪密度整体上调。曲线与下限都在配置里，这里只取当前档的值。
      */
     private double currentSpawnInterval() {
-        double interval = GameConfig.SPAWN_INTERVAL_BASE
-                - (gameState.getLevel() - 1) * GameConfig.SPAWN_INTERVAL_STEP;
-        return Math.max(interval, GameConfig.SPAWN_INTERVAL_MIN);
+        return GameConfig.spawnIntervalAt(gameState.getLevel(), difficulty);
     }
 
     /**
      * 从顶部随机横坐标生成一架随机机型的敌机（F04）。
-     * 血量按当前关卡放大（{@link GameConfig#enemyHealthAt}），关卡越高单机越耐打。
+     * 血量按当前关卡与当前难度放大（{@link GameConfig#enemyHealthAt}），关卡越高、档位越硬，单机越耐打。
      */
     private Enemy spawnEnemy() {
         EnemyType type = randomType();
@@ -186,10 +182,14 @@ public class GameModelImpl implements GameModel {
         int level = gameState.getLevel();
 
         return switch (type) {
-            case MOVING -> new MovingEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.MOVING_ENEMY_HEALTH, level));
-            case SHOOTING -> new ShootingEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.SHOOTING_ENEMY_HEALTH, level));
-            case BOMBER -> new BomberEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.BOMBER_ENEMY_HEALTH, level));
-            default -> new NormalEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, level));
+            case MOVING -> new MovingEnemy(x, y,
+                    GameConfig.enemyHealthAt(GameConfig.MOVING_ENEMY_HEALTH, level, difficulty));
+            case SHOOTING -> new ShootingEnemy(x, y,
+                    GameConfig.enemyHealthAt(GameConfig.SHOOTING_ENEMY_HEALTH, level, difficulty));
+            case BOMBER -> new BomberEnemy(x, y,
+                    GameConfig.enemyHealthAt(GameConfig.BOMBER_ENEMY_HEALTH, level, difficulty));
+            default -> new NormalEnemy(x, y,
+                    GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, level, difficulty));
         };
     }
 
@@ -235,14 +235,6 @@ public class GameModelImpl implements GameModel {
         bullets.removeIf(bullet -> !bullet.isAlive());
         items.removeIf(item -> !item.isAlive());
         waves.removeIf(wave -> !wave.isAlive());
-        hitEffects.removeIf(effect -> !effect.isAlive());
-    }
-
-    /** 更新受击特效计时器。 */
-    private void updateHitEffects(double deltaTime) {
-        for (HitEffect effect : hitEffects) {
-            effect.update(deltaTime);
-        }
     }
 
     private void checkCollisions() {
@@ -268,17 +260,7 @@ public class GameModelImpl implements GameModel {
                 }
                 bullet.setAlive(false);
                 enemy.takeDamage(bullet.getDamage());
-                // 命中闪光：在子弹与敌机的接触点生成
-                hitEffects.add(new HitEffect(
-                        bullet.getX() + bullet.getWidth() / 2,
-                        bullet.getY() + bullet.getHeight() / 2,
-                        HitEffect.Type.ENEMY_HIT, HIT_EFFECT_DURATION));
                 if (!enemy.isAlive()) {
-                    // 击毁爆炸：在敌机中心生成更大的爆炸特效
-                    hitEffects.add(new HitEffect(
-                            enemy.getX() + enemy.getWidth() / 2,
-                            enemy.getY() + enemy.getHeight() / 2,
-                            HitEffect.Type.ENEMY_EXPLODE, EXPLODE_EFFECT_DURATION));
                     addScore(enemy.getScore());
                     dropItem(enemy);
                 }
@@ -298,14 +280,7 @@ public class GameModelImpl implements GameModel {
             }
             if (isColliding(bullet, player)) {
                 bullet.setAlive(false);
-                int hpBefore = player.getHealth();
                 player.takeDamage(bullet.getDamage());
-                if (player.getHealth() < hpBefore) {
-                    hitEffects.add(new HitEffect(
-                            player.getX() + player.getWidth() / 2,
-                            player.getY() + player.getHeight() / 2,
-                            HitEffect.Type.PLAYER_HIT, PLAYER_HIT_EFFECT_DURATION));
-                }
             }
         }
     }
@@ -320,19 +295,7 @@ public class GameModelImpl implements GameModel {
                 continue;
             }
             enemy.setAlive(false);
-            int hpBefore = player.getHealth();
             player.takeDamage(enemy.getCollisionDamage());
-            if (player.getHealth() < hpBefore) {
-                hitEffects.add(new HitEffect(
-                        player.getX() + player.getWidth() / 2,
-                        player.getY() + player.getHeight() / 2,
-                        HitEffect.Type.PLAYER_HIT, PLAYER_HIT_EFFECT_DURATION));
-            }
-            // 撞击同时也在敌机位置生成爆炸
-            hitEffects.add(new HitEffect(
-                    enemy.getX() + enemy.getWidth() / 2,
-                    enemy.getY() + enemy.getHeight() / 2,
-                    HitEffect.Type.ENEMY_EXPLODE, EXPLODE_EFFECT_DURATION));
         }
     }
 
@@ -352,11 +315,11 @@ public class GameModelImpl implements GameModel {
 
     /**
      * 击毁敌机时按概率掉一件道具（F10）。
-     * 概率随关卡递减（{@link GameConfig#itemDropRateAt}）：第 1 关 50%，第 10 关只剩 15%，
-     * 越到后期补给越稀罕。
+     * 概率随关卡递减（普通档第 1 关 50%，第 10 关只剩 15%），再按难度整体缩放（F16）：
+     * 简单档掉得更多、困难档更少。越到后期补给越稀罕。
      */
     private void dropItem(Enemy enemy) {
-        if (random.nextDouble() >= GameConfig.itemDropRateAt(gameState.getLevel())) {
+        if (random.nextDouble() >= GameConfig.itemDropRateAt(gameState.getLevel(), difficulty)) {
             return;
         }
         items.add(new Item(enemy.getX(), enemy.getY(), randomItemType()));
@@ -444,9 +407,6 @@ public class GameModelImpl implements GameModel {
     public List<BombWave> getWaves() { return waves; }
 
     @Override
-    public List<HitEffect> getHitEffects() { return hitEffects; }
-
-    @Override
     public int getScore() { return (int) gameState.getScore(); }
 
     @Override
@@ -457,6 +417,29 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public int getHighScore() { return highScore; }
+
+    /** 按档位读存档：三档各记各的，取哪一档就把哪一档那份读出来（F16）。 */
+    @Override
+    public int getHighScore(Difficulty difficulty) {
+        return highScoreStore.forDifficulty(difficulty).load();
+    }
+
+    @Override
+    public Difficulty getDifficulty() { return difficulty; }
+
+    /**
+     * 切换难度（F16）：敌机血量、生成间隔与掉落概率都改按新档位算，
+     * 最高分也一并换成这一档的存档值（否则会拿上一档成绩去比，低分永远刷不进去）。
+     * 传 null 忽略，难度保持不变。
+     */
+    @Override
+    public void setDifficulty(Difficulty difficulty) {
+        if (difficulty == null) {
+            return;
+        }
+        this.difficulty = difficulty;
+        this.highScore = highScoreStore.forDifficulty(difficulty).load();
+    }
 
     @Override
     public GameStatus getStatus() { return gameState.getStatus(); }

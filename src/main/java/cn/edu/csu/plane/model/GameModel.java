@@ -1,5 +1,7 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.Difficulty;
+
 import java.util.List;
 
 /**
@@ -41,9 +43,6 @@ public interface GameModel {
     /** 返回场上正在扫的炸弹冲击波列表（供视图渲染）。 */
     List<BombWave> getWaves();
 
-    /** 返回场上正在播放的受击特效列表（供视图渲染）。 */
-    List<HitEffect> getHitEffects();
-
     /** 返回当前得分。 */
     int getScore();
 
@@ -55,6 +54,18 @@ public interface GameModel {
 
     /** 返回历史最高分（F13）；从没打过或存档损坏时为 0。 */
     int getHighScore();
+
+    /** 返回指定难度的历史最高分（F16）。主菜单切换档位时按所选档位取。 */
+    int getHighScore(Difficulty difficulty);
+
+    /** 返回当前难度（F16），默认普通档。 */
+    Difficulty getDifficulty();
+
+    /**
+     * 切换难度（F16）。设置后立即生效：敌机血量、掉落概率、生成密度与最高分显示都按新档位算。
+     * 由装配层保证调用时机——主菜单选好后、{@link #initGame()} 开局之前。
+     */
+    void setDifficulty(Difficulty difficulty);
 
     /** 返回当前游戏状态。 */
     GameStatus getStatus();

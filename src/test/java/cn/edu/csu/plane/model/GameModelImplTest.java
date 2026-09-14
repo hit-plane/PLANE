@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -686,5 +687,83 @@ class GameModelImplTest {
         killPlayer(fresh);
 
         assertEquals(GameStatus.GAME_OVER, fresh.getStatus(), "同帧竞争时应判失败");
+    }
+
+    // ---------------- 难度（F16） ----------------
+
+    /** 默认就是普通档：不设难度时，一切与加难度之前一样。 */
+    @Test
+    void difficultyDefaultsToNormal() {
+        assertEquals(Difficulty.NORMAL, model.getDifficulty());
+    }
+
+    /** 生成的敌机血量按当前难度算：简单档更脆、困难档更厚，同一关卡下三档各不相同。 */
+    @Test
+    void spawnedEnemyHealthFollowsDifficulty() throws Exception {
+        Method spawnEnemy = GameModelImpl.class.getDeclaredMethod("spawnEnemy");
+        spawnEnemy.setAccessible(true);
+
+        for (Difficulty difficulty : Difficulty.values()) {
+            GameModelImpl target = new GameModelImpl(new Random(SEED));
+            target.setDifficulty(difficulty);
+            target.initGame();
+
+            for (int i = 0; i < 50; i++) {
+                Enemy enemy = (Enemy) spawnEnemy.invoke(target);
+                assertEquals(GameConfig.enemyHealthAt(baseHealthOf(enemy.getType()), 1, difficulty),
+                        enemy.getMaxHealth(),
+                        difficulty.getLabel() + " 档的 " + enemy.getType() + " 血量应按本档算");
+                assertEquals(enemy.getMaxHealth(), enemy.getHealth(), "生成时应该是满血");
+            }
+        }
+
+        assertTrue(GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1, Difficulty.EASY)
+                        < GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1, Difficulty.NORMAL),
+                "同关卡下简单档该更脆");
+        assertTrue(GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1, Difficulty.HARD)
+                        > GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1, Difficulty.NORMAL),
+                "同关卡下困难档该更厚");
+    }
+
+    /** 最高分分档：简单档的成绩落在自己的存档里，不碰普通档那条记录。 */
+    @Test
+    void highScoreIsKeptPerDifficulty() {
+        HighScoreStore store = new HighScoreStore(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(store);
+
+        fresh.setDifficulty(Difficulty.EASY);
+        fresh.initGame();
+        fresh.addScore(900);
+        killPlayer(fresh);
+
+        assertEquals(900, fresh.getHighScore(), "当前难度的最高分该更新");
+        assertEquals(0, fresh.getHighScore(Difficulty.NORMAL), "普通档不该被简单档的成绩污染");
+        assertEquals(900, fresh.getHighScore(Difficulty.EASY));
+        assertEquals(900, store.forDifficulty(Difficulty.EASY).load(), "简单档成绩该落到自己的存档里");
+        assertEquals(0, store.load(), "普通档存档不该被动过");
+    }
+
+    /** 重开一局沿用所选难度，不会悄悄退回普通档。 */
+    @Test
+    void restartKeepsSelectedDifficulty() throws Exception {
+        model.setDifficulty(Difficulty.HARD);
+        model.initGame();
+        model.initGame();
+
+        assertEquals(Difficulty.HARD, model.getDifficulty(), "重开后难度不该被重置");
+
+        Method spawnEnemy = GameModelImpl.class.getDeclaredMethod("spawnEnemy");
+        spawnEnemy.setAccessible(true);
+        Enemy enemy = (Enemy) spawnEnemy.invoke(model);
+        assertEquals(GameConfig.enemyHealthAt(baseHealthOf(enemy.getType()), 1, Difficulty.HARD),
+                enemy.getMaxHealth(), "重开后的敌机仍该按困难档算血量");
+    }
+
+    /** 传 null 不该把难度改没，仍然按普通档跑。 */
+    @Test
+    void settingNullDifficultyIsIgnored() {
+        model.setDifficulty(Difficulty.HARD);
+        model.setDifficulty(null);
+        assertEquals(Difficulty.HARD, model.getDifficulty(), "null 不该覆盖已选难度");
     }
 }

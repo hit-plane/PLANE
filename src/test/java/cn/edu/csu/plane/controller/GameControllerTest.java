@@ -1,11 +1,13 @@
 package cn.edu.csu.plane.controller;
 
+import cn.edu.csu.plane.model.BombWave;
 import cn.edu.csu.plane.model.Bullet;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameStatus;
 import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.Player;
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameView;
 import javafx.application.Platform;
@@ -62,9 +64,14 @@ class GameControllerTest {
         }
     }
 
+    /**
+     * 故意不在测完关掉工具箱：JavaFX 的 {@code Platform.exit()} 关掉后就再也起不来了，
+     * 同一个 JVM 里后面的测试类（如 {@code MainMenuViewTest}）还要用它，一 exit 就会
+     * 卡在等 FX 线程上。工具箱子进程由 Surefire 跑完整个 JVM 时统一收掉。
+     */
     @AfterAll
-    static void stopJavaFxToolkit() {
-        Platform.exit();
+    static void keepJavaFxToolkitAlive() {
+        // 什么都不做，留在这里是为了说明"不关"是有意为之
     }
 
     @BeforeEach
@@ -249,6 +256,21 @@ class GameControllerTest {
 
     // ========== 5. 终局结算 ==========
 
+    /** 难度（F16）要一路传到视图：渲染与结算都得带上当前档位，界面才显示得出来。 */
+    @Test
+    void difficultyIsForwardedToView() {
+        model.setDifficulty(Difficulty.HARD);
+        controller.start();
+
+        step();
+        assertEquals(Difficulty.HARD, view.lastRenderedDifficulty, "每帧渲染该带上当前难度");
+
+        model.setScore(500);
+        model.setStatus(GameStatus.GAME_OVER);
+        step();
+        assertEquals(Difficulty.HARD, view.lastShownDifficulty, "结算面板该显示本局难度");
+    }
+
     @Test
     void gameOver_shouldShowResultExactlyOnce() {
         // 验证点：阵亡后结算只弹一次，不能每帧都弹
@@ -400,9 +422,12 @@ class GameControllerTest {
         private final List<Enemy> enemies = new ArrayList<>();
         private final List<Bullet> bullets = new ArrayList<>();
         private final List<Item> items = new ArrayList<>();
+        private final List<BombWave> waves = new ArrayList<>();
 
         private GameStatus status = GameStatus.MENU;
         private int score;
+        private int highScore;
+        private Difficulty difficulty = Difficulty.NORMAL;
 
         private int initGameCount;
         private int updateCount;
@@ -482,6 +507,11 @@ class GameControllerTest {
         }
 
         @Override
+        public List<BombWave> getWaves() {
+            return waves;
+        }
+
+        @Override
         public int getScore() {
             return score;
         }
@@ -498,7 +528,22 @@ class GameControllerTest {
 
         @Override
         public int getHighScore() {
-            return 0;
+            return highScore;
+        }
+
+        @Override
+        public int getHighScore(Difficulty difficulty) {
+            return highScore;
+        }
+
+        @Override
+        public Difficulty getDifficulty() {
+            return difficulty;
+        }
+
+        @Override
+        public void setDifficulty(Difficulty difficulty) {
+            this.difficulty = difficulty;
         }
 
         @Override
@@ -523,6 +568,8 @@ class GameControllerTest {
         private int renderCount;
         private int showGameOverCount;
         private long lastShownScore;
+        private Difficulty lastShownDifficulty;
+        private Difficulty lastRenderedDifficulty;
         private Player lastPlayer;
         private List<Enemy> lastEnemies;
         private List<Bullet> lastBullets;
@@ -530,18 +577,21 @@ class GameControllerTest {
 
         @Override
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                           int score, int level, int highScore, GameStatus status) {
+                           List<BombWave> waves, int score, int level, int highScore, GameStatus status,
+                           Difficulty difficulty, double deltaTime) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
             lastBullets = bullets;
             lastItems = items;
+            lastRenderedDifficulty = difficulty;
         }
 
         @Override
-        public void showGameOver(GameStatus status, long score) {
+        public void showGameOver(GameStatus status, long score, Difficulty difficulty) {
             showGameOverCount++;
             lastShownScore = score;
+            lastShownDifficulty = difficulty;
         }
     }
 

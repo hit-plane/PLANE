@@ -8,10 +8,10 @@ import javafx.scene.text.Font;
 import javafx.scene.text.TextAlignment;
 
 /**
- * HUD 视图：在画布顶部实时绘制得分、关卡、最高分、火力等级与血量条。
+ * HUD 视图：在画布顶部实时绘制得分、关卡、难度、最高分、火力等级与血量条。
  *
- * <p>竖版战场只有 {@link GameConfig#WINDOW_WIDTH} 宽，一行塞不下五组信息，
- * 因此排成两行：第一行放分数/关卡/最高分，第二行放火力等级与血量条。
+ * <p>竖版战场只有 {@link GameConfig#WINDOW_WIDTH} 宽，一行塞不下六组信息，
+ * 因此排成两行：第一行放分数/关卡/难度/最高分，第二行放火力等级与血量条。
  * 横向位置按窗口宽度取比例，改窗口宽度不用再手调坐标。</p>
  */
 public class HUDView {
@@ -28,8 +28,9 @@ public class HUDView {
         this.gc = gc;
     }
 
-    /** 每帧重画一次 HUD（覆盖在画布最上层）。 */
-    public void draw(long score, int level, int highScore, int health, int maxHealth, int firePower) {
+    /** 每帧重画一次 HUD（覆盖在画布最上层）。{@code difficultyLabel} 是当前难度名（简单/普通/困难）。 */
+    public void draw(long score, int level, int highScore, int health, int maxHealth, int firePower,
+                     String difficultyLabel) {
         double w = GameConfig.WINDOW_WIDTH;
 
         // 道具文字用的是居中/居中对齐，这里显式改回左对齐+基线对齐，
@@ -44,8 +45,9 @@ public class HUDView {
         gc.setFill(Color.WHITE);
         gc.setFont(Font.font("SansSerif", FONT_SIZE));
         gc.fillText("分数 " + score, w * 0.02, TEXT_Y);
-        gc.fillText("关卡 " + level, w * 0.32, TEXT_Y);
-        gc.fillText("最高 " + highScore, w * 0.55, TEXT_Y);
+        gc.fillText("关卡 " + level, w * 0.28, TEXT_Y);
+        gc.fillText("难度 " + difficultyLabel, w * 0.50, TEXT_Y);
+        gc.fillText("最高 " + highScore, w * 0.72, TEXT_Y);
 
         gc.fillText("火力 " + firePower + "/" + GameConfig.MAX_FIRE_POWER, w * 0.02, SECOND_ROW_Y);
 

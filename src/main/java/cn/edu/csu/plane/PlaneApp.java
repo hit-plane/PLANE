@@ -99,24 +99,31 @@ public class PlaneApp extends Application {
             pauseView.getNode().setVisible(false);
             controller.resume();
         });
+        // 最高分按难度分档：每次回到菜单都按当前所选档位显示，切换难度也跟着刷新。
+        Runnable refreshMenuHighScore =
+                () -> menuView.setHighScore(model.getHighScore(menuView.getSelectedDifficulty()));
+
         pauseView.setOnQuit(() -> {
             pauseView.getNode().setVisible(false);
-            menuView.setHighScore(model.getHighScore());
+            refreshMenuHighScore.run();
             menuView.getNode().setVisible(true);
             controller.toMenu();
         });
 
         // 一局结束：弹出结算面板
-        gameView.setGameOverHandler((status, score) -> {
-            gameOverView.show(status, score);
+        gameView.setGameOverHandler((status, score, difficulty) -> {
+            gameOverView.show(status, score, difficulty);
             gameOverView.getNode().setVisible(true);
         });
 
-        // 主菜单：按所选皮肤开始游戏
-        menuView.setHighScore(model.getHighScore());
+        // 主菜单：按所选皮肤与难度开始游戏。难度要在 start() 之前写进模型，
+        // start() 内部会 initGame()，生成敌机时读的就是这个值。
+        menuView.setOnDifficultyChange(difficulty -> refreshMenuHighScore.run());
+        refreshMenuHighScore.run();
         menuView.setOnStart(() -> {
             gameView.setPlayerSkin(menuView.getSelectedPlaneSkin());
             gameView.setPlayerBulletSkin(menuView.getSelectedBulletSkin());
+            model.setDifficulty(menuView.getSelectedDifficulty());
             menuView.getNode().setVisible(false);
             gameOverView.getNode().setVisible(false);
             pauseView.getNode().setVisible(false);
@@ -130,7 +137,7 @@ public class PlaneApp extends Application {
         });
         gameOverView.setOnMenu(() -> {
             gameOverView.getNode().setVisible(false);
-            menuView.setHighScore(model.getHighScore());
+            refreshMenuHighScore.run();
             menuView.getNode().setVisible(true);
             controller.toMenu();
         });

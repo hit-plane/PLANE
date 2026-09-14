@@ -26,11 +26,18 @@ import java.util.Properties;
  * 火力上限由双发提到五连发、分数上限由 5000 提到 10000（正好打满关卡封顶的 10 级）。
  * 敌机血量为 SRS 未定义项，本类中明确取值以便追溯。</p>
  *
- * <p>难度递增不只体现在"敌机更多、高级机型更常见"上，还有两条随关卡走的曲线：
+ * <p>难度递增不只体现在"敌机更多、高级机型更常见"上，还有三条随关卡走的曲线：
  * 一是敌机血量逐关加厚（{@link #ENEMY_HEALTH_GROWTH_PER_LEVEL}），
  * 二是道具掉落概率逐关走低（{@link #ITEM_DROP_RATE_STEP}）——后期补给更稀罕，
- * 玩家不能靠捡道具一路躺过。与之配套，玩家单发子弹伤害随火力等级递减
- * （{@link #playerBulletDamage}），多一条弹道就轻一分，五连发的总伤害才不会失控。</p>
+ * 玩家不能靠捡道具一路躺过，三是敌机生成间隔逐关缩短（{@link #SPAWN_INTERVAL_STEP}）。
+ * 与之配套，玩家单发子弹伤害随火力等级递减（{@link #playerBulletDamage}），
+ * 多一条弹道就轻一分，五连发的总伤害才不会失控。</p>
+ *
+ * <p>上面三条曲线都按难度（{@link Difficulty}）再乘一层倍率，见
+ * {@link #enemyHealthAt(int, int, Difficulty)}、{@link #itemDropRateAt(int, Difficulty)}
+ * 与 {@link #spawnIntervalAt(int, Difficulty)}。倍率只做偏移，不动本类里任何一个基础数值：
+ * 普通档倍率全为 1.0，取的就是原始口径，与没有难度概念时逐位相同。
+ * 不传难度的旧版重载一律按普通档算，行为不变。</p>
  */
 public final class GameConfig {
 
@@ -141,12 +148,25 @@ public final class GameConfig {
     public static final double ENEMY_HEALTH_GROWTH_PER_LEVEL = getDouble("enemy.health.growth.per.level", 0.15);
 
     /**
-     * 指定关卡下某机型（按基准血量）的实际血量：{@code 基准 × (1 + (关卡 - 1) × 成长率)}，
-     * 四舍五入到整数，至少 1 点。关卡越高血压条越厚，玩家得靠火力强化才跟得上。
+     * 指定关卡下某机型（按基准血量）的实际血量，按普通档算：
+     * {@code 基准 × (1 + (关卡 - 1) × 成长率)}，四舍五入到整数，至少 1 点。
+     * 关卡越高血压条越厚，玩家得靠火力强化才跟得上。
      */
     public static int enemyHealthAt(int baseHealth, int level) {
-        double factor = 1 + Math.max(0, level - 1) * ENEMY_HEALTH_GROWTH_PER_LEVEL;
-        return Math.max(1, (int) Math.round(baseHealth * factor));
+        return enemyHealthAt(baseHealth, level, Difficulty.NORMAL);
+    }
+
+    /**
+     * 指定关卡、指定难度下某机型的实际血量：
+     * {@code 基准 × 血量倍率 × (1 + (关卡 - 1) × 成长率 × 成长倍率)}，四舍五入到整数，至少 1 点。
+     *
+     * <p>难度从两头调血量：血量倍率抬高/压低整条曲线的起点，成长倍率改变曲线爬升的快慢。
+     * 两者都乘在基准值上，普通档（两个倍率都是 1.0）化简后就是老公式。</p>
+     */
+    public static int enemyHealthAt(int baseHealth, int level, Difficulty difficulty) {
+        double growth = ENEMY_HEALTH_GROWTH_PER_LEVEL * difficulty.getHealthGrowthMultiplier();
+        double factor = 1 + Math.max(0, level - 1) * growth;
+        return Math.max(1, (int) Math.round(baseHealth * difficulty.getEnemyHealthMultiplier() * factor));
     }
 
     // ---------- 敌机尺寸与速度 ----------
@@ -184,6 +204,19 @@ public final class GameConfig {
     public static final double MAX_ADVANCED_WEIGHT = getDouble("spawn.advanced.weight.max", 4.0);
 
     /**
+     * 指定关卡、指定难度下的敌机生成间隔（秒）：{@code (基础间隔 - (关卡 - 1) × 每关缩短量) × 难度倍率}，
+     * 不低于 {@link #SPAWN_INTERVAL_MIN}。
+     *
+     * <p>难度倍率越大出得越稀疏（简单档 1.2，困难档 0.8）。下限不乘倍率、三档共用：
+     * 它是防止高关卡一帧糊满屏的安全阀，不该因为选了困难档就被突破，
+     * 代价是后期三档的密度会收敛到同一个上限，难度差异主要落在前中期。</p>
+     */
+    public static double spawnIntervalAt(int level, Difficulty difficulty) {
+        double interval = SPAWN_INTERVAL_BASE - Math.max(0, level - 1) * SPAWN_INTERVAL_STEP;
+        return Math.max(interval * difficulty.getSpawnIntervalMultiplier(), SPAWN_INTERVAL_MIN);
+    }
+
+    /**
      * 分数上限（F17）：累计得分达到它就判通关，由 v1.0 的 5000 提高到 10000。
      *
      * <p>10000 正好是"关卡上限 10 级 × {@link #SCORE_PER_LEVEL} 1000 分"，与
@@ -204,12 +237,25 @@ public final class GameConfig {
     public static final double ITEM_DROP_RATE_MIN = getDouble("item.drop.rate.min", 0.15);
 
     /**
-     * 指定关卡下击毁敌机掉落道具的概率：{@code 基础概率 - (关卡 - 1) × 每关递减量}，
-     * 不低于 {@link #ITEM_DROP_RATE_MIN}。第 1 关 50%，第 10 关 15%。
+     * 指定关卡下击毁敌机掉落道具的概率，按普通档算：
+     * {@code 基础概率 - (关卡 - 1) × 每关递减量}，不低于 {@link #ITEM_DROP_RATE_MIN}。
+     * 第 1 关 50%，第 10 关 15%。
      */
     public static double itemDropRateAt(int level) {
+        return itemDropRateAt(level, Difficulty.NORMAL);
+    }
+
+    /**
+     * 指定关卡、指定难度下的掉落概率：先按普通档那条曲线取值（含
+     * {@link #ITEM_DROP_RATE_MIN} 下限），再整体乘难度倍率，最后封顶到 1.0。
+     *
+     * <p>倍率乘在一次算完的曲线值上（而不是只乘基础概率），所以下限也跟着走：
+     * 简单档后期仍有 21%，困难档后期只剩 9%——难度差异从中期一直保持到终局。</p>
+     */
+    public static double itemDropRateAt(int level, Difficulty difficulty) {
         double rate = ITEM_DROP_RATE - Math.max(0, level - 1) * ITEM_DROP_RATE_STEP;
-        return Math.max(rate, ITEM_DROP_RATE_MIN);
+        double floored = Math.max(rate, ITEM_DROP_RATE_MIN) * difficulty.getItemDropRateMultiplier();
+        return Math.min(floored, 1.0);
     }
 
     /**
@@ -268,7 +314,11 @@ public final class GameConfig {
         }
     }
 
-    private static double getDouble(String key, double fallback) {
+    /**
+     * 读一个小数配置项，读不到或写错就退回默认值。
+     * 包内可见是为了让同包的 {@link Difficulty} 也走这条带容错的读取路径，不必各写一份。
+     */
+    static double getDouble(String key, double fallback) {
         String raw = PROPS.getProperty(key);
         if (raw == null) {
             return fallback;
