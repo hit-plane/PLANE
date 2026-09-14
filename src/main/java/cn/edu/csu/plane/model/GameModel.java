@@ -41,6 +41,9 @@ public interface GameModel {
     /** 返回场上正在扫的炸弹冲击波列表（供视图渲染）。 */
     List<BombWave> getWaves();
 
+    /** 返回场上正在播放的受击特效列表（供视图渲染）。 */
+    List<HitEffect> getHitEffects();
+
     /** 返回当前得分。 */
     int getScore();
 

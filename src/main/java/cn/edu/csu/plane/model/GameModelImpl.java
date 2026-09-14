@@ -20,12 +20,18 @@ public class GameModelImpl implements GameModel {
     /** 非火力道具：火力强化之外的三种，掉落时在这三个里等概率挑（F10）。 */
     private static final ItemType[] OTHER_ITEM_TYPES = {ItemType.BOMB, ItemType.SHIELD, ItemType.HEAL};
 
+    /** 受击特效时长（秒）：敌机命中闪光 0.15s、敌机爆炸 0.35s、玩家受击 0.3s。 */
+    private static final double HIT_EFFECT_DURATION = 0.15;
+    private static final double EXPLODE_EFFECT_DURATION = 0.35;
+    private static final double PLAYER_HIT_EFFECT_DURATION = 0.3;
+
     private final GameState gameState;
     private final Player player;
     private final List<Enemy> enemies = new ArrayList<>();
     private final List<Bullet> bullets = new ArrayList<>();
     private final List<Item> items = new ArrayList<>();
     private final List<BombWave> waves = new ArrayList<>();
+    private final List<HitEffect> hitEffects = new ArrayList<>();
     private final Random random;
     private final HighScoreStore highScoreStore;
     private int highScore;
@@ -63,6 +69,7 @@ public class GameModelImpl implements GameModel {
         bullets.clear();
         items.clear();
         waves.clear();
+        hitEffects.clear();
         spawnTimer = 0;
     }
 
@@ -85,6 +92,7 @@ public class GameModelImpl implements GameModel {
         updateEntities(bullets, deltaTime);
         updateEntities(items, deltaTime);
         updateEntities(waves, deltaTime);
+        updateHitEffects(deltaTime);
 
         checkCollisions();
         removeDeadEntities();
@@ -108,6 +116,7 @@ public class GameModelImpl implements GameModel {
         // 清除场上残留道具与冲击波，避免结算画面仍显示飞行中的东西
         items.clear();
         waves.clear();
+        hitEffects.clear();
         if (gameState.getScore() > highScore) {
             highScore = (int) gameState.getScore();
             highScoreStore.save(highScore);
@@ -135,6 +144,7 @@ public class GameModelImpl implements GameModel {
         bullets.clear();
         items.clear();
         waves.clear();
+        hitEffects.clear();
         spawnTimer = 0;
         gameState.setStatus(GameStatus.MENU);
     }
@@ -225,6 +235,14 @@ public class GameModelImpl implements GameModel {
         bullets.removeIf(bullet -> !bullet.isAlive());
         items.removeIf(item -> !item.isAlive());
         waves.removeIf(wave -> !wave.isAlive());
+        hitEffects.removeIf(effect -> !effect.isAlive());
+    }
+
+    /** 更新受击特效计时器。 */
+    private void updateHitEffects(double deltaTime) {
+        for (HitEffect effect : hitEffects) {
+            effect.update(deltaTime);
+        }
     }
 
     private void checkCollisions() {
@@ -250,7 +268,17 @@ public class GameModelImpl implements GameModel {
                 }
                 bullet.setAlive(false);
                 enemy.takeDamage(bullet.getDamage());
+                // 命中闪光：在子弹与敌机的接触点生成
+                hitEffects.add(new HitEffect(
+                        bullet.getX() + bullet.getWidth() / 2,
+                        bullet.getY() + bullet.getHeight() / 2,
+                        HitEffect.Type.ENEMY_HIT, HIT_EFFECT_DURATION));
                 if (!enemy.isAlive()) {
+                    // 击毁爆炸：在敌机中心生成更大的爆炸特效
+                    hitEffects.add(new HitEffect(
+                            enemy.getX() + enemy.getWidth() / 2,
+                            enemy.getY() + enemy.getHeight() / 2,
+                            HitEffect.Type.ENEMY_EXPLODE, EXPLODE_EFFECT_DURATION));
                     addScore(enemy.getScore());
                     dropItem(enemy);
                 }
@@ -270,7 +298,14 @@ public class GameModelImpl implements GameModel {
             }
             if (isColliding(bullet, player)) {
                 bullet.setAlive(false);
+                int hpBefore = player.getHealth();
                 player.takeDamage(bullet.getDamage());
+                if (player.getHealth() < hpBefore) {
+                    hitEffects.add(new HitEffect(
+                            player.getX() + player.getWidth() / 2,
+                            player.getY() + player.getHeight() / 2,
+                            HitEffect.Type.PLAYER_HIT, PLAYER_HIT_EFFECT_DURATION));
+                }
             }
         }
     }
@@ -285,7 +320,19 @@ public class GameModelImpl implements GameModel {
                 continue;
             }
             enemy.setAlive(false);
+            int hpBefore = player.getHealth();
             player.takeDamage(enemy.getCollisionDamage());
+            if (player.getHealth() < hpBefore) {
+                hitEffects.add(new HitEffect(
+                        player.getX() + player.getWidth() / 2,
+                        player.getY() + player.getHeight() / 2,
+                        HitEffect.Type.PLAYER_HIT, PLAYER_HIT_EFFECT_DURATION));
+            }
+            // 撞击同时也在敌机位置生成爆炸
+            hitEffects.add(new HitEffect(
+                    enemy.getX() + enemy.getWidth() / 2,
+                    enemy.getY() + enemy.getHeight() / 2,
+                    HitEffect.Type.ENEMY_EXPLODE, EXPLODE_EFFECT_DURATION));
         }
     }
 
@@ -395,6 +442,9 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public List<BombWave> getWaves() { return waves; }
+
+    @Override
+    public List<HitEffect> getHitEffects() { return hitEffects; }
 
     @Override
     public int getScore() { return (int) gameState.getScore(); }

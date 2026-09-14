@@ -146,8 +146,8 @@ public class GameController {
     /** 每帧渲染画面：把渲染所需的本局数据一并交给视图。 */
     public void render() {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems(),
-                model.getWaves(), model.getScore(), model.getLevel(), model.getHighScore(),
-                model.getStatus(), lastDelta);
+                model.getWaves(), model.getHitEffects(), model.getScore(), model.getLevel(),
+                model.getHighScore(), model.getStatus(), lastDelta);
     }
 
     /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */
