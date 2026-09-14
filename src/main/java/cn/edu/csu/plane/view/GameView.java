@@ -145,7 +145,10 @@ public class GameView {
         }
         lastLevel = level;
 
-        updateBackground(deltaTime);
+        // 暂停/结算时背景静止，只有进行中才滚动
+        if (status == GameStatus.PLAYING) {
+            updateBackground(deltaTime);
+        }
         drawBackground();
         drawItems(items);
         drawEnemies(enemies);
