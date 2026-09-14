@@ -58,6 +58,13 @@ public class GameView {
     private final Image enemy4Image;
     private final Image enemyBulletImage;
 
+    // 背景贴图
+    private final Image backgroundImage;
+    // 道具贴图（火力强化、炸弹、回血）
+    private final Image firepowerItemImage;
+    private final Image bombItemImage;
+    private final Image healItemImage;
+
     // 玩家皮肤（可变，默认 plane3 / bullet3）
     private Image playerImage;
     private Image playerBulletImage;
@@ -74,6 +81,11 @@ public class GameView {
         enemy3Image = AssetLoader.prepare("enemies/enemy3.png", ENEMY_H, ENEMY3_ROTATION);
         enemy4Image = AssetLoader.prepare("enemies/enemy4.png", ENEMY_H, 0);
         enemyBulletImage = AssetLoader.prepare("BulletOfEnemy/bullet4.png", BULLET_H, BULLET4_ROTATION);
+
+        backgroundImage = AssetLoader.load("background/background.png");
+        firepowerItemImage = AssetLoader.prepare("prop/bullet plus.jpg", GameConfig.ITEM_SIZE, 0);
+        bombItemImage = AssetLoader.prepare("prop/bomb.jpg", GameConfig.ITEM_SIZE, 0);
+        healItemImage = AssetLoader.prepare("prop/heal.png", GameConfig.ITEM_SIZE, 0);
 
         setPlayerSkin("plane3");
         setPlayerBulletSkin("bullet3");
@@ -121,8 +133,12 @@ public class GameView {
     }
 
     private void drawBackground() {
-        gc.setFill(Color.WHITE);
-        gc.fillRect(0, 0, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
+        if (backgroundImage != null) {
+            gc.drawImage(backgroundImage, 0, 0, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
+        } else {
+            gc.setFill(Color.WHITE);
+            gc.fillRect(0, 0, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
+        }
     }
 
     private void drawPlayer(Player player) {
@@ -190,15 +206,19 @@ public class GameView {
             double w = item.getWidth();
             double h = item.getHeight();
 
-            gc.setFill(colorOf(item.getType()));
-            gc.fillOval(x, y, w, h);
-
-            // 字画在圆心：对齐方式按圆心算，省得跟着半径改偏移量
-            gc.setFill(Color.WHITE);
-            gc.setFont(Font.font("SansSerif", ITEM_LABEL_FONT_SIZE));
-            gc.setTextAlign(TextAlignment.CENTER);
-            gc.setTextBaseline(VPos.CENTER);
-            gc.fillText(labelOf(item.getType()), x + w / 2, y + h / 2);
+            // 有专属贴图的道具用贴图，其余用彩色圆+汉字
+            Image itemImage = itemImageOf(item.getType());
+            if (itemImage != null) {
+                gc.drawImage(itemImage, x, y, w, h);
+            } else {
+                gc.setFill(colorOf(item.getType()));
+                gc.fillOval(x, y, w, h);
+                gc.setFill(Color.WHITE);
+                gc.setFont(Font.font("SansSerif", ITEM_LABEL_FONT_SIZE));
+                gc.setTextAlign(TextAlignment.CENTER);
+                gc.setTextBaseline(VPos.CENTER);
+                gc.fillText(labelOf(item.getType()), x + w / 2, y + h / 2);
+            }
         }
     }
 
@@ -208,6 +228,16 @@ public class GameView {
             return;
         }
         gc.drawImage(img, cx - img.getWidth() / 2, cy - img.getHeight() / 2);
+    }
+
+    /** 道具贴图：火力强化、炸弹、回血有专属图片，护盾暂无贴图。 */
+    private Image itemImageOf(ItemType type) {
+        return switch (type) {
+            case FIREPOWER -> firepowerItemImage;
+            case BOMB -> bombItemImage;
+            case HEAL -> healItemImage;
+            default -> null;
+        };
     }
 
     private Color colorOf(ItemType type) {

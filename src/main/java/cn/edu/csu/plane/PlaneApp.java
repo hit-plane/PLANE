@@ -3,10 +3,12 @@ package cn.edu.csu.plane;
 import cn.edu.csu.plane.controller.GameController;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameModelImpl;
+import cn.edu.csu.plane.model.GameStatus;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameOverView;
 import cn.edu.csu.plane.view.GameView;
 import cn.edu.csu.plane.view.MainMenuView;
+import cn.edu.csu.plane.view.PauseView;
 import javafx.application.Application;
 import javafx.scene.Scene;
 import javafx.scene.input.KeyEvent;
@@ -25,11 +27,12 @@ public class PlaneApp extends Application {
         GameView gameView = new GameView();
         MainMenuView menuView = new MainMenuView();
         GameOverView gameOverView = new GameOverView();
+        PauseView pauseView = new PauseView();
         GameController controller = new GameController(model, gameView);
 
         // 画布在底层，菜单与结算界面按需覆盖在其上
         StackPane root = new StackPane();
-        root.getChildren().addAll(gameView.getCanvas(), menuView.getNode(), gameOverView.getNode());
+        root.getChildren().addAll(gameView.getCanvas(), menuView.getNode(), gameOverView.getNode(), pauseView.getNode());
 
         Scene scene = new Scene(root, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
 
@@ -39,14 +42,32 @@ public class PlaneApp extends Application {
         scene.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             if (event.getCode() == GameController.PAUSE_KEY) {
                 controller.togglePause();
+                // 暂停后显示暂停面板，恢复后隐藏
+                pauseView.getNode().setVisible(model.getStatus() == GameStatus.PAUSED);
             }
         });
         stage.focusedProperty().addListener((observable, wasFocused, isFocused) -> {
             if (isFocused) {
                 controller.resume();
+                pauseView.getNode().setVisible(false);
             } else {
                 controller.pause();
+                if (model.getStatus() == GameStatus.PAUSED) {
+                    pauseView.getNode().setVisible(true);
+                }
             }
+        });
+
+        // 暂停面板按钮
+        pauseView.setOnResume(() -> {
+            pauseView.getNode().setVisible(false);
+            controller.resume();
+        });
+        pauseView.setOnQuit(() -> {
+            pauseView.getNode().setVisible(false);
+            menuView.setHighScore(model.getHighScore());
+            menuView.getNode().setVisible(true);
+            controller.toMenu();
         });
 
         // 一局结束：弹出结算面板
@@ -62,6 +83,7 @@ public class PlaneApp extends Application {
             gameView.setPlayerBulletSkin(menuView.getSelectedBulletSkin());
             menuView.getNode().setVisible(false);
             gameOverView.getNode().setVisible(false);
+            pauseView.getNode().setVisible(false);
             controller.start();
         });
 
@@ -79,6 +101,7 @@ public class PlaneApp extends Application {
 
         // 初始状态：只显示主菜单
         gameOverView.getNode().setVisible(false);
+        pauseView.getNode().setVisible(false);
 
         stage.setTitle("飞机大战");
         stage.setScene(scene);
