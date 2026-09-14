@@ -67,10 +67,11 @@ class GameModelImplTest {
 
     /**
      * 在固定坐标生成一发玩家子弹并跑一次子弹-敌机结算，返回该子弹是否命中被销毁。
-     * 子弹坐标硬编码为 (450, 200)，调用方需把敌机放在能与其相交的位置。
+     * 子弹坐标硬编码为 (450, 200)，调用方需把敌机放在能与其相交的位置；
+     * 伤害取 1 级火力的口径（100% 基准伤害），免得把伤害值再写死一遍。
      */
     private boolean fireOneBulletAndResolve() throws Exception {
-        Bullet bullet = new Bullet(450, 200, 0, 1, true);
+        Bullet bullet = new Bullet(450, 200, 0, GameConfig.playerBulletDamage(1), true);
         model.getBullets().add(bullet);
         checkBulletEnemy(model);
         return !bullet.isAlive();
@@ -204,7 +205,7 @@ class GameModelImplTest {
 
     /**
      * 子弹伤害按发累积，击毁时只计一次分（对应 GWT-06 / GWT-10）。
-     * 射击敌机 3 血：每次结算消耗一发子弹，打第 3 发才击毁、此时才计分。
+     * 射击敌机 3 个"基准伤害单位"的血：每次结算消耗一发子弹，打光才击毁、此时才计分。
      */
     @Test
     void bulletDamageAccumulatesAndScoresOnceOnKill() throws Exception {
@@ -213,9 +214,12 @@ class GameModelImplTest {
         ShootingEnemy enemy = new ShootingEnemy(440, 200);
         model.getEnemies().add(enemy);
 
-        for (int i = 1; i < GameConfig.SHOOTING_ENEMY_HEALTH; i++) {
+        int damage = GameConfig.playerBulletDamage(1);
+        int hitsToKill = (int) Math.ceil((double) GameConfig.SHOOTING_ENEMY_HEALTH / damage);
+
+        for (int i = 1; i < hitsToKill; i++) {
             assertTrue(fireOneBulletAndResolve(), "第 " + i + " 发命中");
-            assertEquals(GameConfig.SHOOTING_ENEMY_HEALTH - i, enemy.getHealth());
+            assertEquals(GameConfig.SHOOTING_ENEMY_HEALTH - i * damage, enemy.getHealth());
             assertTrue(enemy.isAlive(), "还没打光血，不应击毁");
             assertEquals(0, model.getScore(), "未击毁不计分");
         }
@@ -227,42 +231,69 @@ class GameModelImplTest {
 
     // ---------------- 道具（F10） ----------------
 
-    /** 道具掉落按 50% 概率：固定种子下多次击毁中大约一半掉落。 */
+    /** 第 1 关道具掉落按 50% 概率：固定种子下多次击毁中大约一半掉落。 */
     @Test
-    void itemDropRateIsAboutHalf() throws Exception {
+    void itemDropRateIsAboutHalfAtLevelOne() throws Exception {
         model.initGame();
-        Method dropItem = GameModelImpl.class.getDeclaredMethod("dropItem", Enemy.class);
-        dropItem.setAccessible(true);
-
-        int drops = 0;
         int trials = 1000;
-        for (int i = 0; i < trials; i++) {
-            int before = model.getItems().size();
-            dropItem.invoke(model, new NormalEnemy(100, 100));
-            if (model.getItems().size() > before) drops++;
-        }
+        int drops = countDrops(trials);
+
         // 50% ± 5% 的宽区间，避免固定种子造成的偶然偏差导致偶发失败
         assertTrue(drops > trials * 0.45 && drops < trials * 0.55,
-                "1000 次击毁应掉约 500 件，实际 " + drops);
+                "第 1 关 1000 次击毁应掉约 500 件，实际 " + drops);
     }
 
-    /** 掉落的道具里火力强化占大头（item.firepower.rate），不是四选一均分。 */
+    /**
+     * 掉落概率随关卡难度递减：同一套随机源下，第 10 关的掉落件数应明显少于第 1 关。
+     * 期望值 50% → 15%，这里用"不到第 1 关的一半"做宽松判据，避免种子噪声。
+     */
     @Test
-    void firepowerIsTheMostFrequentDrop() throws Exception {
+    void itemDropRateShrinksAsLevelRises() throws Exception {
         model.initGame();
+        int trials = 1000;
+        int atLevelOne = countDrops(trials);
+
+        model.addScore(GameConfig.SCORE_PER_LEVEL * (GameState.MAX_LEVEL - 1));   // 升到关卡上限
+        assertEquals(GameState.MAX_LEVEL, model.getLevel(), "分数够高时应升到关卡上限");
+
+        int atMaxLevel = countDrops(trials);
+        assertTrue(atMaxLevel < atLevelOne * 0.5,
+                "第 " + GameState.MAX_LEVEL + " 关掉落应明显少于第 1 关，实际 " + atMaxLevel + " vs " + atLevelOne);
+    }
+
+    /** 掉落的道具里"火力强化（加弹道）"占 25%，与炸弹/护盾/回血恰好等概率。 */
+    @Test
+    void firepowerDropsAtAQuarter() throws Exception {
+        model.initGame();
+        int trials = 2000;
+        countDrops(trials);
+
+        List<Item> dropped = model.getItems();
+        assertFalse(dropped.isEmpty(), "2000 次击毁不该一件都不掉");
+
+        long firepower = dropped.stream().filter(item -> item.getType() == ItemType.FIREPOWER).count();
+        double rate = firepower / (double) dropped.size();
+        assertTrue(rate > 0.18 && rate < 0.32,
+                "火力强化应占掉落的 25% 左右，实际 " + firepower + "/" + dropped.size());
+
+        for (ItemType type : List.of(ItemType.BOMB, ItemType.SHIELD, ItemType.HEAL)) {
+            long count = dropped.stream().filter(item -> item.getType() == type).count();
+            double other = count / (double) dropped.size();
+            assertTrue(other > 0.18 && other < 0.32,
+                    type + " 也该占 25% 左右，实际 " + count + "/" + dropped.size());
+        }
+    }
+
+    /** 反复调用私有 dropItem 统计掉落件数；items 只增不减，所以用前后差值算。 */
+    private int countDrops(int trials) throws Exception {
         Method dropItem = GameModelImpl.class.getDeclaredMethod("dropItem", Enemy.class);
         dropItem.setAccessible(true);
 
-        int trials = 2000;
+        int before = model.getItems().size();
         for (int i = 0; i < trials; i++) {
             dropItem.invoke(model, new NormalEnemy(100, 100));
         }
-
-        List<Item> dropped = model.getItems();
-        long firepower = dropped.stream().filter(item -> item.getType() == ItemType.FIREPOWER).count();
-        assertFalse(dropped.isEmpty(), "2000 次击毁不该一件都不掉");
-        assertTrue(firepower > dropped.size() / 2.0,
-                "火力强化应占掉落的一半以上，实际 " + firepower + "/" + dropped.size());
+        return model.getItems().size() - before;
     }
 
     /** 全屏炸弹：清掉全部敌机与敌弹、按各机分值补分，且不动玩家自己的子弹。 */
@@ -320,14 +351,15 @@ class GameModelImplTest {
     void multipleBulletsMayHitSameEnemyInOnePass() throws Exception {
         model.initGame();
 
-        ShootingEnemy enemy = new ShootingEnemy(440, 200);   // 3 血
+        int damage = GameConfig.playerBulletDamage(1);
+        ShootingEnemy enemy = new ShootingEnemy(440, 200);
         model.getEnemies().add(enemy);
-        model.getBullets().add(new Bullet(450, 200, 0, 1, true));
-        model.getBullets().add(new Bullet(450, 200, 0, 1, true));
+        model.getBullets().add(new Bullet(450, 200, 0, damage, true));
+        model.getBullets().add(new Bullet(450, 200, 0, damage, true));
 
         checkBulletEnemy(model);
 
-        assertEquals(GameConfig.SHOOTING_ENEMY_HEALTH - 2, enemy.getHealth(), "两发都命中同一架");
+        assertEquals(GameConfig.SHOOTING_ENEMY_HEALTH - 2 * damage, enemy.getHealth(), "两发都命中同一架");
         assertTrue(enemy.isAlive());
         assertEquals(0, model.getScore(), "未击毁不计分");
     }
@@ -341,11 +373,11 @@ class GameModelImplTest {
         NormalEnemy behind = new NormalEnemy(440, 200);   // 完全重叠
         model.getEnemies().add(front);
         model.getEnemies().add(behind);
-        model.getBullets().add(new Bullet(450, 200, 0, 1, true));
+        model.getBullets().add(new Bullet(450, 200, 0, GameConfig.playerBulletDamage(1), true));
 
         checkBulletEnemy(model);
 
-        assertEquals(GameConfig.NORMAL_ENEMY_HEALTH - 1, front.getHealth());
+        assertEquals(GameConfig.NORMAL_ENEMY_HEALTH - GameConfig.playerBulletDamage(1), front.getHealth());
         assertEquals(GameConfig.NORMAL_ENEMY_HEALTH, behind.getHealth(), "第二架不应被同一发命中");
         assertTrue(behind.isAlive());
         assertEquals(0, model.getScore());
@@ -356,20 +388,62 @@ class GameModelImplTest {
     void twoBulletsKillTwoEnemiesInOnePass() throws Exception {
         model.initGame();
 
+        int damage = GameConfig.playerBulletDamage(1);
         NormalEnemy e1 = new NormalEnemy(440, 200);
         NormalEnemy e2 = new NormalEnemy(300, 200);
-        e1.takeDamage(1);   // 各剩 1 血
-        e2.takeDamage(1);
+        e1.takeDamage(GameConfig.NORMAL_ENEMY_HEALTH - damage);   // 各剩恰好一发子弹的血
+        e2.takeDamage(GameConfig.NORMAL_ENEMY_HEALTH - damage);
         model.getEnemies().add(e1);
         model.getEnemies().add(e2);
-        model.getBullets().add(new Bullet(450, 200, 0, 1, true));
-        model.getBullets().add(new Bullet(310, 200, 0, 1, true));
+        model.getBullets().add(new Bullet(450, 200, 0, damage, true));
+        model.getBullets().add(new Bullet(310, 200, 0, damage, true));
 
         checkBulletEnemy(model);
 
         assertFalse(e1.isAlive());
         assertFalse(e2.isAlive());
         assertEquals(GameConfig.NORMAL_ENEMY_SCORE * 2, model.getScore());
+    }
+
+    /**
+     * 敌机血量随关卡变厚：生成的敌机按当前关卡算血量，第 10 关明显比第 1 关耐打。
+     * 机型是随机的，所以逐架按它自己的基准血量对账，而不是盯着某个机型。
+     */
+    @Test
+    void spawnedEnemyHealthScalesWithLevel() throws Exception {
+        model.initGame();
+        Method spawnEnemy = GameModelImpl.class.getDeclaredMethod("spawnEnemy");
+        spawnEnemy.setAccessible(true);
+
+        Enemy first = (Enemy) spawnEnemy.invoke(model);
+        assertEquals(EnemyType.NORMAL, first.getType(), "第 1 关只出普通敌机");
+        assertEquals(GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1), first.getMaxHealth(),
+                "第 1 关用基准血量");
+
+        model.addScore(GameConfig.SCORE_PER_LEVEL * (GameState.MAX_LEVEL - 1));
+        int level = model.getLevel();
+        assertEquals(GameState.MAX_LEVEL, level);
+
+        for (int i = 0; i < 100; i++) {
+            Enemy enemy = (Enemy) spawnEnemy.invoke(model);
+            assertEquals(GameConfig.enemyHealthAt(baseHealthOf(enemy.getType()), level), enemy.getMaxHealth(),
+                    enemy.getType() + " 在第 " + level + " 关的血量应是基准 × 成长系数");
+            assertEquals(enemy.getMaxHealth(), enemy.getHealth(), "生成时应该是满血");
+        }
+        assertTrue(GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, level) > GameConfig.NORMAL_ENEMY_HEALTH,
+                "高关卡的普通机应比第 1 关厚");
+    }
+
+    /** 机型 → 第 1 关基准血量，用于按关卡推算实际血量。 */
+    private static int baseHealthOf(EnemyType type) {
+        return switch (type) {
+            case NORMAL -> GameConfig.NORMAL_ENEMY_HEALTH;
+            case MOVING -> GameConfig.MOVING_ENEMY_HEALTH;
+            case SHOOTING -> GameConfig.SHOOTING_ENEMY_HEALTH;
+            case BOMBER -> GameConfig.BOMBER_ENEMY_HEALTH;
+            // BOSS 还没接进生成流程（也没有配血量），给个占位值让 switch 穷尽
+            case BOSS -> GameConfig.NORMAL_ENEMY_HEALTH;
+        };
     }
 
     /** 敌弹命中玩家：扣 10 血并进入无敌（GWT-07a）。 */

@@ -52,22 +52,40 @@ class GameConfigTest {
         assertEquals(30, GameConfig.HEAL_AMOUNT, "SRS Q6：回血 30 点");
     }
 
-    /** 掉落概率由 20% 上调到 50%：杀两个掉一个是本次调整的明确口径。 */
+    /** 第 1 关的掉落概率仍是 50%：它是逐关递减的起点，杀两个掉一个。 */
     @Test
-    void itemDropRateIsHalf() {
-        assertEquals(0.5, GameConfig.ITEM_DROP_RATE, 0.001, "击毁敌机应有 50% 概率掉道具");
+    void itemDropRateStartsAtHalf() {
+        assertEquals(0.5, GameConfig.ITEM_DROP_RATE, 0.001, "第 1 关击毁敌机应有 50% 概率掉道具");
         assertTrue(GameConfig.ITEM_DROP_RATE <= 1.0 && GameConfig.ITEM_DROP_RATE > 0,
                 "概率得落在 (0, 1] 区间内，实际 " + GameConfig.ITEM_DROP_RATE);
     }
 
-    /** 掉落里火力强化占比最高：必须高于四选一均分的 25%，但也不能包圆。 */
+    /** 掉落概率随关卡递减且不跌破下限：第 1 关 50% → 第 10 关 15%。 */
     @Test
-    void firepowerIsTheMostLikelyDrop() {
-        double uniform = 0.25;
-        assertTrue(GameConfig.ITEM_FIREPOWER_RATE > uniform,
-                "火力强化占比应高于四选一均分的 25%，实际 " + GameConfig.ITEM_FIREPOWER_RATE);
-        assertTrue(GameConfig.ITEM_FIREPOWER_RATE < 1.0,
-                "不能 100% 只掉火力，炸弹/护盾/回血还得能出现，实际 " + GameConfig.ITEM_FIREPOWER_RATE);
+    void itemDropRateShrinksAsLevelRises() {
+        assertEquals(GameConfig.ITEM_DROP_RATE, GameConfig.itemDropRateAt(1), 0.001, "第 1 关就用基础概率");
+        assertTrue(GameConfig.itemDropRateAt(10) < GameConfig.itemDropRateAt(1),
+                "高关卡掉落应更少：第 1 关 " + GameConfig.itemDropRateAt(1)
+                        + " vs 第 10 关 " + GameConfig.itemDropRateAt(10));
+
+        double previous = Double.MAX_VALUE;
+        for (int level = 1; level <= 10; level++) {
+            double rate = GameConfig.itemDropRateAt(level);
+            assertTrue(rate <= previous, "第 " + level + " 关的掉落概率不该高于上一关：" + rate + " > " + previous);
+            assertTrue(rate > 0 && rate <= 1, "概率得落在 (0, 1] 内，实际 " + rate);
+            assertTrue(rate >= GameConfig.ITEM_DROP_RATE_MIN - 0.001,
+                    "概率不该跌破下限 " + GameConfig.ITEM_DROP_RATE_MIN + "，实际 " + rate);
+            previous = rate;
+        }
+        assertEquals(GameConfig.ITEM_DROP_RATE_MIN, GameConfig.itemDropRateAt(99), 0.001, "关卡再高也贴着下限，不会掉到 0");
+    }
+
+    /** 掉落里"火力强化（加弹道）"占 25%：与炸弹/护盾/回血的均分概率持平，不再一家独大。 */
+    @Test
+    void firepowerDropRateIsAQuarter() {
+        assertEquals(0.25, GameConfig.ITEM_FIREPOWER_RATE, 0.001, "加弹道的火力强化占比应为 25%");
+        assertTrue(GameConfig.ITEM_FIREPOWER_RATE > 0 && GameConfig.ITEM_FIREPOWER_RATE < 1.0,
+                "概率得落在 (0, 1) 内，炸弹/护盾/回血还得能出现，实际 " + GameConfig.ITEM_FIREPOWER_RATE);
     }
 
     /** 竖版窗口：高度必须大于宽度，否则又变回横版了。 */
@@ -111,5 +129,42 @@ class GameConfigTest {
         assertTrue(GameConfig.PLAYER_SPEED > 0, "玩家速度得是正数，否则战机走不动");
         assertTrue(GameConfig.VICTORY_SCORE > GameConfig.SCORE_PER_LEVEL,
                 "通关分数要是高于一个关卡线，不然一升关就通关了");
+    }
+
+    /** 单发子弹伤害按火力等级递减：1 级 100%、2 级 75%、3 级 65%、4/5 级 50%。 */
+    @Test
+    void bulletDamageDropsAsFirePowerRises() {
+        int base = GameConfig.BULLET_DAMAGE_BASE;
+        assertEquals(base, GameConfig.playerBulletDamage(1), "1 级就是 100% 基准伤害");
+        assertEquals(Math.round(base * 0.75), GameConfig.playerBulletDamage(2), "2 级 75%");
+        assertEquals(Math.round(base * 0.65), GameConfig.playerBulletDamage(3), "3 级 65%");
+        assertEquals(Math.round(base * 0.50), GameConfig.playerBulletDamage(4), "4 级 50%");
+        assertEquals(GameConfig.playerBulletDamage(4), GameConfig.playerBulletDamage(5), "5 级也是 50%");
+
+        for (int level = 1; level < GameConfig.MAX_FIRE_POWER; level++) {
+            assertTrue(GameConfig.playerBulletDamage(level) >= GameConfig.playerBulletDamage(level + 1),
+                    "等级越高单发伤害不该更高：" + level + " 级 " + GameConfig.playerBulletDamage(level)
+                            + " < " + (level + 1) + " 级 " + GameConfig.playerBulletDamage(level + 1));
+        }
+        assertTrue(GameConfig.playerBulletDamage(0) > 0, "越界等级也要给个正数伤害，不能打出 0 伤害的子弹");
+        assertTrue(GameConfig.playerBulletDamage(99) > 0, "超过百分比表的等级沿用最高档，不越界");
+    }
+
+    /** 敌机血量随关卡变厚：第 1 关就是基准值，之后逐关递增。 */
+    @Test
+    void enemyHealthGrowsWithLevel() {
+        assertEquals(GameConfig.NORMAL_ENEMY_HEALTH, GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, 1),
+                "第 1 关用基准血量");
+        assertTrue(GameConfig.ENEMY_HEALTH_GROWTH_PER_LEVEL > 0, "成长率得是正数，否则难度不会涨");
+
+        int previous = 0;
+        for (int level = 1; level <= 10; level++) {
+            int health = GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, level);
+            assertTrue(health > previous, "第 " + level + " 关的血量应比上一关厚：" + health + " <= " + previous);
+            previous = health;
+        }
+        assertTrue(GameConfig.enemyHealthAt(GameConfig.SHOOTING_ENEMY_HEALTH, 10) > GameConfig.SHOOTING_ENEMY_HEALTH,
+                "第 10 关的射击机也该比第 1 关厚");
+        assertTrue(GameConfig.enemyHealthAt(0, 10) >= 1, "极小的基准血量也得兜到至少 1 点");
     }
 }

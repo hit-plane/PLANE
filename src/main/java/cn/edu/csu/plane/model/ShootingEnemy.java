@@ -13,8 +13,13 @@ public class ShootingEnemy extends Enemy {
     private double fireCooldown;
 
     public ShootingEnemy(double x, double y) {
+        this(x, y, GameConfig.SHOOTING_ENEMY_HEALTH);
+    }
+
+    /** 指定血量构造：血量随关卡成长，由 GameModelImpl 按当前关卡算好传进来。 */
+    public ShootingEnemy(double x, double y, int health) {
         super(x, y, GameConfig.ENEMY_SIZE, GameConfig.ENEMY_SIZE,
-                EnemyType.SHOOTING, GameConfig.SHOOTING_ENEMY_HEALTH, GameConfig.SHOOTING_ENEMY_SCORE);
+                EnemyType.SHOOTING, health, GameConfig.SHOOTING_ENEMY_SCORE);
         this.velY = GameConfig.SHOOTING_ENEMY_SPEED;
         this.fireCooldown = GameConfig.SHOOTING_ENEMY_FIRE_INTERVAL;
     }

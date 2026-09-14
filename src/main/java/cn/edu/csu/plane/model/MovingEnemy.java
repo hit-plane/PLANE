@@ -10,8 +10,13 @@ public class MovingEnemy extends Enemy {
     private double direction = 1;
 
     public MovingEnemy(double x, double y) {
+        this(x, y, GameConfig.MOVING_ENEMY_HEALTH);
+    }
+
+    /** 指定血量构造：血量随关卡成长，由 GameModelImpl 按当前关卡算好传进来。 */
+    public MovingEnemy(double x, double y, int health) {
         super(x, y, GameConfig.ENEMY_SIZE, GameConfig.ENEMY_SIZE,
-                EnemyType.MOVING, GameConfig.MOVING_ENEMY_HEALTH, GameConfig.MOVING_ENEMY_SCORE);
+                EnemyType.MOVING, health, GameConfig.MOVING_ENEMY_SCORE);
         this.velY = GameConfig.MOVING_ENEMY_SPEED;
     }
 

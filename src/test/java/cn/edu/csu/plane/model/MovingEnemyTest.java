@@ -15,7 +15,7 @@ class MovingEnemyTest {
     void constructorSetsFields() {
         MovingEnemy e = new MovingEnemy(100, 100);
         assertEquals(EnemyType.MOVING, e.getType());
-        assertEquals(1, e.getHealth());
+        assertEquals(GameConfig.MOVING_ENEMY_HEALTH, e.getHealth());
         assertEquals(150, e.getScore());
         assertEquals(GameConfig.ENEMY_SIZE, e.getWidth(), 0.001);
         assertEquals(110, e.getVelY(), 0.001);

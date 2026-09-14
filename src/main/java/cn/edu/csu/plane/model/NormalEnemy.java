@@ -12,10 +12,18 @@ public class NormalEnemy extends Enemy {
         this.velY = GameConfig.NORMAL_ENEMY_SPEED;
     }
 
-    /** 按 SRS F08 的普通机血量/分值直接构造（供 GameModelImpl 生成时使用）。 */
+    /** 按 SRS F08 的普通机基准血量/分值构造（不随关卡成长的场合用，如测试）。 */
     public NormalEnemy(double x, double y) {
+        this(x, y, GameConfig.NORMAL_ENEMY_HEALTH);
+    }
+
+    /**
+     * 指定血量构造：血量随关卡成长，由 GameModelImpl 按当前关卡算好传进来
+     * （{@link GameConfig#enemyHealthAt}）。
+     */
+    public NormalEnemy(double x, double y, int health) {
         this(x, y, GameConfig.NORMAL_ENEMY_SIZE, GameConfig.NORMAL_ENEMY_SIZE,
-                EnemyType.NORMAL, GameConfig.NORMAL_ENEMY_HEALTH, GameConfig.NORMAL_ENEMY_SCORE);
+                EnemyType.NORMAL, health, GameConfig.NORMAL_ENEMY_SCORE);
     }
 
     @Override

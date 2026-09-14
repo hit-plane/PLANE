@@ -530,7 +530,7 @@ class GameControllerTest {
 
         @Override
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                           int score, int level, int highScore, GameStatus status) {
+                           int score, int level, int highScore, GameStatus status, double deltaTime) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;

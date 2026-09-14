@@ -66,7 +66,7 @@ class PlayerTest {
 
         Bullet b = shots.get(0);
         assertTrue(b.isPlayerBullet());
-        assertEquals(1, b.getDamage());
+        assertEquals(GameConfig.playerBulletDamage(1), b.getDamage(), "1 级火力是 100% 基准伤害");
         assertEquals(-GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL, b.getVelY(), 0.001);
         assertEquals(100 + BODY / 2 - Bullet.WIDTH / 2, b.getX(), 0.001); // 机头正中
         assertEquals(100, b.getY(), 0.001);
@@ -81,6 +81,32 @@ class PlayerTest {
         assertEquals(2, shots.size());
         assertEquals(108, shots.get(0).getX(), 0.001); // x + 8
         assertEquals(100 + BODY - 8 - Bullet.WIDTH, shots.get(1).getX(), 0.001); // x + 宽 - 8 - 弹宽
+    }
+
+    /**
+     * 单发伤害随火力等级递减：1 级 100%、2 级 75%、3 级 65%、4/5 级 50%。
+     * 弹道越多单发越轻，这样"多吃几个火力道具"不会让总伤害失控。
+     */
+    @Test
+    void shootDamageDropsAsFirePowerRises() {
+        int previous = Integer.MAX_VALUE;
+        for (int level = 1; level <= GameConfig.MAX_FIRE_POWER; level++) {
+            if (level > 1) {
+                player.enhanceFirePower();
+            }
+            player.update(GameConfig.PLAYER_FIRE_INTERVAL);   // 走完冷却才能开下一枪
+
+            List<Bullet> shots = player.shoot();
+            assertEquals(level, shots.size(), "火力 " + level + " 级就该打出 " + level + " 发");
+
+            int damage = shots.get(0).getDamage();
+            assertEquals(GameConfig.playerBulletDamage(level), damage, "火力 " + level + " 级的单发伤害");
+            assertTrue(damage <= previous, "等级越高单发伤害不该更高：" + level + " 级 " + damage + " > 上一级 " + previous);
+            previous = damage;
+        }
+
+        assertEquals(GameConfig.BULLET_DAMAGE_BASE, GameConfig.playerBulletDamage(1), "1 级是基准伤害（100%）");
+        assertEquals(GameConfig.playerBulletDamage(5), GameConfig.playerBulletDamage(4), "4、5 级单发伤害相同（都是 50%）");
     }
 
     @Test

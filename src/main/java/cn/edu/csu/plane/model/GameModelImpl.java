@@ -159,18 +159,22 @@ public class GameModelImpl implements GameModel {
         return Math.max(interval, GameConfig.SPAWN_INTERVAL_MIN);
     }
 
-    /** 从顶部随机横坐标生成一架随机机型的敌机（F04）。 */
+    /**
+     * 从顶部随机横坐标生成一架随机机型的敌机（F04）。
+     * 血量按当前关卡放大（{@link GameConfig#enemyHealthAt}），关卡越高单机越耐打。
+     */
     private Enemy spawnEnemy() {
         EnemyType type = randomType();
         double size = (type == EnemyType.NORMAL) ? GameConfig.NORMAL_ENEMY_SIZE : GameConfig.ENEMY_SIZE;
         double x = random.nextDouble() * (GameConfig.WINDOW_WIDTH - size);
         double y = -size;
+        int level = gameState.getLevel();
 
         return switch (type) {
-            case MOVING -> new MovingEnemy(x, y);
-            case SHOOTING -> new ShootingEnemy(x, y);
-            case BOMBER -> new BomberEnemy(x, y);
-            default -> new NormalEnemy(x, y);
+            case MOVING -> new MovingEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.MOVING_ENEMY_HEALTH, level));
+            case SHOOTING -> new ShootingEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.SHOOTING_ENEMY_HEALTH, level));
+            case BOMBER -> new BomberEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.BOMBER_ENEMY_HEALTH, level));
+            default -> new NormalEnemy(x, y, GameConfig.enemyHealthAt(GameConfig.NORMAL_ENEMY_HEALTH, level));
         };
     }
 
@@ -292,18 +296,22 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 击毁敌机时按概率掉一件道具（F10）。 */
+    /**
+     * 击毁敌机时按概率掉一件道具（F10）。
+     * 概率随关卡递减（{@link GameConfig#itemDropRateAt}）：第 1 关 50%，第 10 关只剩 15%，
+     * 越到后期补给越稀罕。
+     */
     private void dropItem(Enemy enemy) {
-        if (random.nextDouble() >= GameConfig.ITEM_DROP_RATE) {
+        if (random.nextDouble() >= GameConfig.itemDropRateAt(gameState.getLevel())) {
             return;
         }
         items.add(new Item(enemy.getX(), enemy.getY(), randomItemType()));
     }
 
     /**
-     * 掷道具类型：先按 {@code item.firepower.rate} 决定是不是"火力强化"，
+     * 掷道具类型：先按 {@code item.firepower.rate}（25%）决定是不是"火力强化"，
      * 不是的话再在炸弹/护盾/回血三种里等概率挑一个。
-     * 所以火力强化是四种道具里最常见的一种，不会出现"想升火力却老掉血包"（Q6）。
+     * 四种道具因此各占 25%，火力强化不再是掉得最多的一种（Q6）。
      */
     private ItemType randomItemType() {
         if (random.nextDouble() < GameConfig.ITEM_FIREPOWER_RATE) {

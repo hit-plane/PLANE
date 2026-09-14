@@ -101,24 +101,28 @@ public class Player extends Entity {
      * 开火，返回这一枪打出去的子弹：火力几级就打几发，最多 {@link GameConfig#MAX_FIRE_POWER} 发。
      *
      * <p>1 级机头正中一发；2 级及以上把 n 发等间距铺在左右机翼之间，所以 2 级恰好是
-     * "左右各一发"，等级越高弹幕越宽。子弹伤害不随等级变——提火力靠的是多发覆盖，
-     * 不是单发变强，这样每发子弹的伤害账目始终是 1 点。</p>
+     * "左右各一发"，等级越高弹幕越宽。</p>
+     *
+     * <p>单发伤害随等级递减（{@link GameConfig#playerBulletDamage}）：1 级 100%、2 级 75%、
+     * 3 级 65%、4/5 级 50%。弹道变多、单发变轻是有意为之——五连发若还按 100% 结算，
+     * 总伤害会随等级指数上涨，火力道具一吃就直接无敌了。</p>
      *
      * <p>外面（GameModelImpl）拿这个返回值往 bullets 里一塞就行，开火后自动进冷却。</p>
      */
     public List<Bullet> shoot() {
         fireCooldown = fireRate;
 
+        int damage = GameConfig.playerBulletDamage(firePower);
         int shotsToFire = Math.max(1, Math.min(firePower, GameConfig.MAX_FIRE_POWER));
         if (shotsToFire == 1) {
-            return List.of(new Bullet(x + width / 2 - Bullet.WIDTH / 2, y, -BULLET_SPEED, 1, true));
+            return List.of(new Bullet(x + width / 2 - Bullet.WIDTH / 2, y, -BULLET_SPEED, damage, true));
         }
 
         // 从"左机翼 + 边距"等间距排到"右机翼 - 边距"；n = 2 时正好落回左右各一发
         double step = (width - WING_MARGIN * 2 - Bullet.WIDTH) / (shotsToFire - 1);
         List<Bullet> shots = new ArrayList<>(shotsToFire);
         for (int i = 0; i < shotsToFire; i++) {
-            shots.add(new Bullet(x + WING_MARGIN + step * i, y, -BULLET_SPEED, 1, true));
+            shots.add(new Bullet(x + WING_MARGIN + step * i, y, -BULLET_SPEED, damage, true));
         }
         return shots;
     }
