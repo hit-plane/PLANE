@@ -96,7 +96,7 @@ class PlayerTest {
             if (level > 1) {
                 player.enhanceFirePower();
             }
-            player.update(GameConfig.PLAYER_FIRE_INTERVAL);   // 走完冷却才能开下一枪
+            player.update(GameConfig.PLAYER_FIRE_INTERVAL, 0);   // 走完冷却才能开下一枪
 
             List<Bullet> shots = player.shoot();
             assertEquals(level, shots.size(), "火力 " + level + " 级就该打出 " + level + " 发");
@@ -116,7 +116,7 @@ class PlayerTest {
         player.shoot();
         assertFalse(player.isReadyToShoot());
 
-        player.update(GameConfig.PLAYER_FIRE_INTERVAL); // 冷却走完
+        player.update(GameConfig.PLAYER_FIRE_INTERVAL, 0); // 冷却走完
         assertTrue(player.isReadyToShoot());
     }
 
@@ -139,7 +139,7 @@ class PlayerTest {
     void invincibilityExpiresOverTime() {
         player.takeDamage(1);
         int hp = player.getHealth();
-        player.update(2.0); // 无敌帧 1 秒，2 秒后消失
+        player.update(2.0, 0); // 无敌帧 1 秒，2 秒后消失
         player.takeDamage(1);
         assertEquals(hp - 1, player.getHealth());
     }
@@ -165,7 +165,7 @@ class PlayerTest {
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
 
         // 无敌结束后再受击才正常扣血
-        player.update(GameConfig.PLAYER_INVINCIBLE_TIME + 0.1);
+        player.update(GameConfig.PLAYER_INVINCIBLE_TIME + 0.1, 0);
         player.takeDamage(1);
         assertEquals(GameConfig.DEFAULT_HEALTH - 1, player.getHealth());
     }
@@ -180,7 +180,10 @@ class PlayerTest {
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
     }
 
-    /** 火力上限 5 级：每吃一个升一级，每一级都真的多打出一发；到顶后不再往上加。 */
+    /**
+     * 火力上限 5 级：每吃一个多一条弹道，每一级都真的多打出一发；到顶后不再叠加，
+     * 而是把最早到期的那条刷新（所以仍保持满弹幕，见"额外弹道的独立计时"一节）。
+     */
     @Test
     void enhanceFirePowerIsCappedAtMax() {
         for (int level = 2; level <= GameConfig.MAX_FIRE_POWER; level++) {
@@ -221,7 +224,7 @@ class PlayerTest {
         int hits = 0;
         while (player.isAlive() && hits < 100) {
             player.takeDamage(GameConfig.COLLISION_DAMAGE);
-            player.update(2.0); // 跳过无敌帧
+            player.update(2.0, 0); // 跳过无敌帧
             hits++;
         }
         assertFalse(player.isAlive());
@@ -236,34 +239,83 @@ class PlayerTest {
         assertEquals(GameConfig.WINDOW_HEIGHT - player.getHeight(), player.getY(), 0.001);
     }
 
-    // ---------------- 火力强化永久生效（F10） ----------------
+    // ---------------- 额外弹道的独立寿命（F10：3 关后消失） ----------------
 
-    /** 火力强化本局永久：过了旧版 10 秒时限也不会回落单发。 */
+    /**
+     * 额外弹道各有各的寿命（按累计得分算，3 个关卡阈值），到期逐条消失，
+     * 而<b>开局自带的那条永远保留</b>——所以最终只回落到底限 1 条，不会出现"零弹道"。
+     */
     @Test
-    void firePowerBoostIsPermanentForTheRun() {
+    void bonusPathExpiresAfterItsOwnThresholdButStartingPathRemains() {
         player.enhanceFirePower();
-        assertEquals(2, player.getFirePower());
+        assertEquals(2, player.getFirePower(), "吃一个道具该多一条弹道");
+        assertEquals(1, player.getBonusPathCount());
 
-        player.update(10.0);
-        assertEquals(2, player.getFirePower(), "10 秒后不该回落，火力强化是本局永久的");
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE - 1);
+        assertEquals(2, player.getFirePower(), "还没跨过 3 关的得分线，该保持两条弹道");
+        assertEquals(1, player.getBonusPathCount());
 
-        player.update(600.0);
-        assertEquals(2, player.getFirePower(), "再久也不衰减");
-        assertEquals(2, player.shoot().size(), "永久双发：之后每一枪都是两发");
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE);
+        assertEquals(1, player.getFirePower(), "跨过得分线后额外弹道消失，落回保底的单发");
+        assertEquals(0, player.getBonusPathCount());
+        assertEquals(1, player.shoot().size(), "保底那一发永远打得出");
+
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE * 100);
+        assertEquals(1, player.getFirePower(), "得分再高也不会掉到 0 条");
     }
 
-    /** 重复拾取是"永久叠加等级"，不是刷新时限：吃到几次就一直打几发。 */
+    /** 两次拾取是两条各自计寿的弹道：先吃的先到期，后一条仍在。 */
     @Test
-    void pickingUpFirePowerAgainStacksPermanently() {
-        player.enhanceFirePower();
-        player.update(10.0);
+    void eachBonusPathKeepsItsOwnThreshold() {
+        player.enhanceFirePower();                        // 第 1 条：0 分时吃到 → 3000 分到期
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE / 2);
+        player.enhanceFirePower();                        // 第 2 条：1500 分时吃到 → 4500 分到期
+        assertEquals(3, player.getFirePower());
+        assertEquals(2, player.getBonusPathCount());
 
-        player.enhanceFirePower();
-        assertEquals(3, player.getFirePower(), "再吃一个升到 3 级，且之前那一级不会被时间吃掉");
+        // 到 3000 分：第 1 条到期消失，第 2 条还差 1500 分
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE);
+        assertEquals(2, player.getFirePower(), "先吃的那条先消失，另一条仍在");
+        assertEquals(1, player.getBonusPathCount());
 
-        player.update(60.0);
-        assertEquals(3, player.getFirePower(), "时限机制已删除，等级不再随时间回落");
-        assertEquals(3, player.shoot().size(), "3 级就该一直是三发");
+        // 到 4500 分：第 2 条也到期，回到保底单发
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE * 3 / 2);
+        assertEquals(1, player.getFirePower());
+        assertEquals(0, player.getBonusPathCount());
+    }
+
+    /** 打满之后再吃，不会叠加出第 6 条，而是把整套额外弹道一起续到"当前得分 + 3 关"。 */
+    @Test
+    void pickingUpAtMaxRefreshesEveryBonusPath() {
+        for (int i = 0; i < GameConfig.MAX_FIRE_POWER + 3; i++) {
+            player.enhanceFirePower();
+        }
+        assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower(), "到上限就封顶");
+        assertEquals(GameConfig.MAX_FIRE_POWER - 1, player.getBonusPathCount(),
+                "额外弹道条数也封顶在上限减 1（剩下那条是开局自带的）");
+
+        // 先烧掉一半寿命，再吃一个：整套额外弹道一起续满
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE / 2);
+        player.enhanceFirePower();
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE);
+        assertEquals(GameConfig.MAX_FIRE_POWER, player.getFirePower(),
+                "续满后仍是满弹幕（若只续一条，这里会掉到 2）");
+
+        // 再走完一个完整寿命没人补：额外弹道全数到期，只剩开局自带那条
+        player.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE * 3);
+        assertEquals(1, player.getFirePower(), "没人续时整套弹幕到期，只剩开局自带那条");
+        assertEquals(0, player.getBonusPathCount());
+    }
+
+    /** 火力强化只加额外弹道，不影响开局自带的条数（作弊档开局 5 条）。 */
+    @Test
+    void startingPathsFromCheatNeverExpire() {
+        Player cheater = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, true);
+        assertEquals(5, cheater.getFirePower(), "作弊档开局就是 5 条");
+        assertEquals(0, cheater.getBonusPathCount(), "开局自带的弹道不进计寿列表");
+
+        cheater.update(1.0, GameConfig.BONUS_PATH_DECAY_SCORE * 100);
+        assertEquals(5, cheater.getFirePower(), "开局自带的弹道永不过期，作弊不会被关卡进度废掉");
     }
 
     // ---------------- 开局复位（F01） ----------------
@@ -286,10 +338,10 @@ class PlayerTest {
         // 弹速 2 倍：一发子弹的位移量是一帧内 速度 × 时间，拿相邻两帧的 y 差来量
         double frame = 1.0 / 60.0;
         List<Bullet> shots = new ArrayList<>();
-        torment.update(GameConfig.PLAYER_FIRE_INTERVAL);   // 跳过长冷却，保证能开火
+        torment.update(GameConfig.PLAYER_FIRE_INTERVAL, 0);   // 跳过长冷却，保证能开火
         shots.addAll(torment.shoot());
         double before = shots.get(0).getY();
-        torment.update(frame);
+        torment.update(frame, 0);
         for (Bullet b : shots) {
             b.update(frame);
         }
@@ -361,10 +413,10 @@ class PlayerTest {
 
         double frame = 1.0 / 60.0;
         List<Bullet> shots = new ArrayList<>();
-        normal.update(GameConfig.PLAYER_FIRE_INTERVAL);
+        normal.update(GameConfig.PLAYER_FIRE_INTERVAL, 0);
         shots.addAll(normal.shoot());
         double before = shots.get(0).getY();
-        normal.update(frame);
+        normal.update(frame, 0);
         for (Bullet b : shots) {
             b.update(frame);
         }

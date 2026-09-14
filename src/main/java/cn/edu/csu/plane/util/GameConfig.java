@@ -114,6 +114,11 @@ public final class GameConfig {
     public static final double PLAYER_INVINCIBLE_TIME = getDouble("player.invincible.time", 1.0);
 
     /**
+     * 捡道具得来的额外弹道的寿命与判定见 {@link #BONUS_PATH_DECAY_LEVELS}、{@link #BONUS_PATH_DECAY_SCORE}
+     * 与 {@link #bonusPathExpiryScore(int)}——它们依赖 {@code SCORE_PER_LEVEL}，所以声明在下方的关卡一节里。
+     */
+
+    /**
      * 指定火力等级下单发子弹的伤害：{@link #BULLET_DAMAGE_BASE} × 该级百分比，四舍五入到整数。
      *
      * <p>等级低于 1 按 1 级算，高于百分比表长度（当前 5 级）按最高档算，
@@ -288,6 +293,27 @@ public final class GameConfig {
     // ---------- 关卡与难度递增（F11） ----------
     /** 每升 1 关所需的累计得分（F11/Q3：每 1000 分升 1 关）。 */
     public static final int SCORE_PER_LEVEL = getInt("level.score.per.level", 1000);
+
+    /**
+     * 捡道具得来的<b>额外弹道</b>能活过几个关卡：默认 3 关。
+     *
+     * <p>按关卡数而不是按秒数计，是因为关卡本来就按累计得分推进（{@link #SCORE_PER_LEVEL}），
+     * 换成秒数会随难度/火力变化而"同样的 60 秒在不同档等于不同关数"。按关卡折算后，
+     * 各难度下都是字面意义的"3 关后消失"。声明在这里而不是玩家一节，是因为它依赖
+     * {@link #SCORE_PER_LEVEL}，放前面会构成非法的前向引用。</p>
+     */
+    public static final int BONUS_PATH_DECAY_LEVELS = getInt("player.bonus.path.decay.levels", 3);
+
+    /** 额外弹道的寿命折算成得分：{@link #BONUS_PATH_DECAY_LEVELS} × {@link #SCORE_PER_LEVEL}。 */
+    public static final int BONUS_PATH_DECAY_SCORE = BONUS_PATH_DECAY_LEVELS * SCORE_PER_LEVEL;
+
+    /**
+     * 在累计得分为 {@code currentScore} 时吃到道具，这条额外弹道到哪个得分点消失：
+     * {@code currentScore + BONUS_PATH_DECAY_SCORE}。
+     */
+    public static int bonusPathExpiryScore(int currentScore) {
+        return currentScore + BONUS_PATH_DECAY_SCORE;
+    }
     /**
      * 敌机生成间隔的起始值（秒）。由 2.0 收到 1.0，再翻倍收到 0.5：
      * 敌机以约 150 px/s 下落、竖版战场纵深 900 px，单机存活约 6 秒，

@@ -347,7 +347,7 @@ class GameModelImplTest {
         Player player = model.getPlayer();
 
         player.takeDamage(GameConfig.COLLISION_DAMAGE);
-        player.update(GameConfig.PLAYER_INVINCIBLE_TIME);
+        player.update(GameConfig.PLAYER_INVINCIBLE_TIME, 0);
         int damaged = player.getHealth();
         applyItem.invoke(model, ItemType.HEAL);
         assertEquals(Math.min(damaged + GameConfig.HEAL_AMOUNT, player.getMaxHealth()), player.getHealth());
@@ -530,7 +530,7 @@ class GameModelImplTest {
         assertEquals(GameConfig.DEFAULT_HEALTH - GameConfig.COLLISION_DAMAGE, model.getHealth());
 
         // 跳过无敌帧后换自爆机撞一次
-        model.getPlayer().update(GameConfig.PLAYER_INVINCIBLE_TIME);
+        model.getPlayer().update(GameConfig.PLAYER_INVINCIBLE_TIME, 0);
         int healthBefore = model.getHealth();
         BomberEnemy bomber = new BomberEnemy(0, 0);
         placeEnemyOnPlayer(bomber);
@@ -573,7 +573,7 @@ class GameModelImplTest {
             placeEnemyOnPlayer(enemy);
             model.getEnemies().add(enemy);
             checkPlayerEnemy(model);
-            model.getPlayer().update(GameConfig.PLAYER_INVINCIBLE_TIME + 0.1);  // 跳过无敌帧
+            model.getPlayer().update(GameConfig.PLAYER_INVINCIBLE_TIME + 0.1, 0);  // 跳过无敌帧
         }
         assertFalse(model.getPlayer().isAlive());
         assertEquals(0, model.getHealth());
@@ -792,11 +792,21 @@ class GameModelImplTest {
         assertEquals(5, player.shoot().size(), "接着打的第一枪就是五连发");
         assertEquals(5000, player.shoot().get(0).getDamage(), "开作弊后的单发伤害该被放大到 5000");
 
+        // 额外弹道按得分计寿（3 关），但开局自带的 5 条不受影响：
+        // 作弊档开局已满级，再吃道具只会把整套额外弹道续到"当前得分 + 3 关"
+        player.enhanceFirePower();
+        assertEquals(5, player.getFirePower(), "作弊档开局已满级，吃道具不该叠出第 6 条");
+
         // 攒够分数升到第 3 关：仍在同一局里，底子不该变
         model.addScore(2 * GameConfig.SCORE_PER_LEVEL);
         assertEquals(3, model.getLevel(), "累计 2000 分该到第 3 关");
         assertEquals(9999, model.getHealth(), "换关之后血量上限与当前血量都该保持");
         assertEquals(5, player.getFirePower(), "换关之后仍是 5 级火力");
+
+        // 再攒 6 关（远超额外弹道的 3 关寿命）：开局自带的 5 条依然在
+        model.addScore(6 * GameConfig.SCORE_PER_LEVEL);
+        player.update(1.0, model.getScore());
+        assertEquals(5, player.getFirePower(), "作弊档自带的弹道永不过期");
 
         // 重开一局同样是这份底子（reset 回到本档起点，而不是旧版的单发/100 血）
         model.initGame();

@@ -101,7 +101,8 @@ public class GameModelImpl implements GameModel {
 
         gameState.advanceTime(deltaTime);
 
-        player.update(deltaTime);
+        // 把当前得分一并喂给玩家：额外弹道的寿命按得分算（"3 关后消失"）
+        player.update(deltaTime, (int) gameState.getScore());
 
         autoShoot();
         updateSpawn(deltaTime);

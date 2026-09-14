@@ -34,11 +34,24 @@ public class Player extends Entity {
 
     private int health;
     private int maxHealth;
-    private int firePower;            // 火力等级：本局内只增不减，到上限为止
+    private int firePower;            // 当前这一枪打几发（保底 1、最多 MAX_FIRE_POWER）
     private double fireRate;          // 两次开火的间隔（秒）
     private double fireCooldown;      // 距离下次能开火还剩多久
     private double invincibleTimer;
     private boolean shielded;
+    /** 当前累计得分，用来判断额外弹道到没到期（由模型每帧喂进来，见 {@link #update}）。 */
+    private int score;
+
+    /**
+     * 捡道具得来的"额外弹道"各自的<b>到期得分</b>，一条弹道一个阈值。
+     *
+     * <p>吃到火力强化时记下"当前得分 + {@link GameConfig#BONUS_PATH_DECAY_SCORE}"；之后得分一旦越过
+     * 那个阈值，这条弹道就消失。因为得分只增不减，列表天然按到期先后排列，逐条到期、逐条消失，
+     * 而不是"到点全部掉回单发"。开局自带的弹道（常规 1 条、作弊 5 条）不进这个列表、永久保留，
+     * 所以永远保底 1 条。按得分而不是按时间计，是为了让"3 关"在任何难度下都是字面意义的 3 关——
+     * 关卡本来就按累计得分推进。</p>
+     */
+    private final List<Integer> bonusPathScores = new ArrayList<>();
 
     /** 按普通档建机：常规玩法与既有测试用的口径，行为与旧版一致。 */
     public Player(double x, double y, double width, double height) {
@@ -87,27 +100,56 @@ public class Player extends Entity {
         this.alive = true;
     }
 
-    /** 一局开始（含重开）时的共同状态：血量回满、火力回到本档起点、清掉盾与计时器。 */
+    /** 一局开始（含重开）时的共同状态：血量回满、火力回到本档起点、清掉盾与所有额外弹道。 */
     private void applyRoundStartState() {
         this.health = maxHealth;
-        this.firePower = startFirePower;
         this.fireCooldown = 0;
         this.invincibleTimer = 0;
         this.shielded = false;
+        this.bonusPathScores.clear();
+        this.firePower = startFirePower;
     }
 
     /**
-     * 逐帧推进计时器。火力等级不在这里衰减：它是一个本局内的永久成长值，
-     * 只受道具影响（见 {@link #enhanceFirePower()}），不在帧循环里回落。
+     * 逐帧推进：无敌帧、开火冷却，以及<b>每一条额外弹道各自的到期得分</b>。
+     *
+     * <p>额外弹道的寿命按得分计（{@link GameConfig#BONUS_PATH_DECAY_SCORE} = 3 个关卡阈值），
+     * 得分越过某条的阈值就把那一条摘掉；摘到只剩开局自带的那些（至少 1 条）就停住，
+     * 所以打不出"零弹道"。暂停时整帧不推进（{@link GameModelImpl} 在非 PLAYING 态直接 return），
+     * 得分也不涨，弹道自然跟着"冻结"。</p>
+     *
+     * @param currentScore 本局当前累计得分，用来判断哪些额外弹道已经到期
      */
-    @Override
-    public void update(double deltaTime) {
+    public void update(double deltaTime, int currentScore) {
+        this.score = currentScore;
         if (invincibleTimer > 0) {
             invincibleTimer -= deltaTime;
         }
         if (fireCooldown > 0) {
             fireCooldown -= deltaTime;
         }
+        if (!bonusPathScores.isEmpty()) {
+            boolean expired = bonusPathScores.removeIf(threshold -> currentScore >= threshold);
+            if (expired) {
+                refreshFirePower();
+            }
+        }
+    }
+
+    /**
+     * {@link Entity} 的帧更新契约：玩家需要知道当前得分才能判断额外弹道到期，
+     * 所以正式入口是 {@link #update(double, int)}；这里沿用"上一次已知的得分"，
+     * 供不关心得分的调用方（测试、通用实体遍历）使用。
+     */
+    @Override
+    public void update(double deltaTime) {
+        update(deltaTime, score);
+    }
+
+    /** 当前这一枪该打几发 = 开局自带 + 还没到期的额外弹道，夹在 [1, MAX_FIRE_POWER]。 */
+    private void refreshFirePower() {
+        firePower = Math.max(1, Math.min(startFirePower + bonusPathScores.size(),
+                GameConfig.MAX_FIRE_POWER));
     }
 
     /** 按输入的位移量移动战机，顺带把坐标卡在窗口里。 */
@@ -196,19 +238,33 @@ public class Player extends Entity {
     }
 
     /**
-     * 火力强化：永久加一条弹道（本局内不衰减），升到上限后不再累加，
-     * 避免出现既无效果又无限增长的等级。
+     * 火力强化：多一条<b>带独立到期得分</b>的额外弹道，各条分别在"再过 3 关"之后消失
+     * （见 {@link GameConfig#BONUS_PATH_DECAY_SCORE}）。
+     *
+     * <p>已经打满（开局自带 + 未到期的额外弹道 = {@link GameConfig#MAX_FIRE_POWER}）时不再叠加，
+     * 而是把<b>所有仍未到期的额外弹道</b>一起续到"当前得分 + 3 关"——满弹幕下再吃一个道具，
+     * 效果就是"整套弹幕续命 3 关"，而不是白白吃掉。注意只动额外弹道，
+     * 开局自带的那条与它无关。</p>
      */
     public void enhanceFirePower() {
-        firePower = Math.min(firePower + 1, GameConfig.MAX_FIRE_POWER);
+        int threshold = GameConfig.bonusPathExpiryScore(score);
+        if (startFirePower + bonusPathScores.size() < GameConfig.MAX_FIRE_POWER) {
+            bonusPathScores.add(threshold);
+        } else if (!bonusPathScores.isEmpty()) {
+            for (int i = 0; i < bonusPathScores.size(); i++) {
+                bonusPathScores.set(i, threshold);
+            }
+        }
+        refreshFirePower();
     }
 
     public void activateShield() {
         shielded = true;
     }
 
-    /** 清除本局积累的状态（火力等级、护盾、无敌帧），一局结束时调用。 */
+    /** 清除本局积累的状态（额外弹道、护盾、无敌帧），一局结束时调用。 */
     public void clearPowerUps() {
+        bonusPathScores.clear();
         firePower = 1;
         shielded = false;
         invincibleTimer = 0;
@@ -220,4 +276,9 @@ public class Player extends Entity {
     public double getFireRate() { return fireRate; }
     public boolean isInvincible() { return invincibleTimer > 0; }
     public boolean isShielded() { return shielded; }
+
+    /** 仍未到期的额外弹道条数（供测试与界面观察，不参与判定）。 */
+    public int getBonusPathCount() {
+        return bonusPathScores.size();
+    }
 }
