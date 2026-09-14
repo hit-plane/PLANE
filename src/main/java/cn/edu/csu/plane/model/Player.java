@@ -161,6 +161,14 @@ public class Player extends Entity {
         shielded = true;
     }
 
+    /** 清除所有临时效果（火力强化、护盾、无敌帧），一局结束时调用。 */
+    public void clearPowerUps() {
+        firePower = 1;
+        firePowerTimer = 0;
+        shielded = false;
+        invincibleTimer = 0;
+    }
+
     public int getHealth() { return health; }
     public int getMaxHealth() { return maxHealth; }
     public int getFirePower() { return firePower; }

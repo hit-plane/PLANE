@@ -24,6 +24,7 @@ public class GameController {
     private final FrameLoop loop;
 
     private long lastFrameNanos;
+    private double lastDelta;
     private boolean awaitingResume;
 
     /** 生产构造：帧循环用 JavaFX AnimationTimer。 */
@@ -89,6 +90,7 @@ public class GameController {
             }
         }
         lastFrameNanos = nowNanos;
+        lastDelta = deltaTime;
 
         if (model.getStatus() == GameStatus.PLAYING) {
             // 输入层给的是 -1/0/1 方向，得乘上速度和这一帧的步长才是位移像素；
@@ -144,7 +146,8 @@ public class GameController {
     /** 每帧渲染画面：把渲染所需的本局数据一并交给视图。 */
     public void render() {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems(),
-                model.getScore(), model.getLevel(), model.getHighScore(), model.getStatus());
+                model.getScore(), model.getLevel(), model.getHighScore(), model.getStatus(),
+                lastDelta);
     }
 
     /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */

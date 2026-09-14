@@ -150,6 +150,10 @@ public final class GameConfig {
     /** 道具触底后的闪烁时长（秒）。 */
     public static final double ITEM_FLASH_DURATION = getDouble("item.flash.duration", 3.0);
 
+    // ---------- 背景滚动 ----------
+    /** 背景纵向循环滚动速度（像素/秒），模拟飞机向前飞行。 */
+    public static final double BACKGROUND_SCROLL_SPEED = getDouble("background.scroll.speed", 40.0);
+
     private GameConfig() {
     }
 

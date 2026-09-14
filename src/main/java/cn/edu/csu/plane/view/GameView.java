@@ -60,10 +60,15 @@ public class GameView {
 
     // 背景贴图
     private final Image backgroundImage;
+    /** 背景缩放后的渲染高度（按窗口宽度等比缩放），用于循环拼接计算。 */
+    private final double bgScaledHeight;
+    /** 背景纵向滚动偏移量（像素），每帧累加，超过缩放高度后归零实现无缝循环。 */
+    private double backgroundOffset;
     // 道具贴图（火力强化、炸弹、回血）
     private final Image firepowerItemImage;
     private final Image bombItemImage;
     private final Image healItemImage;
+    private final Image shieldItemImage;
 
     // 玩家皮肤（可变，默认 plane3 / bullet3）
     private Image playerImage;
@@ -83,9 +88,18 @@ public class GameView {
         enemyBulletImage = AssetLoader.prepare("BulletOfEnemy/bullet4.png", BULLET_H, BULLET4_ROTATION);
 
         backgroundImage = AssetLoader.load("background/background.png");
-        firepowerItemImage = AssetLoader.prepare("prop/bullet plus.jpg", GameConfig.ITEM_SIZE, 0);
+        // 背景图按窗口宽度等比缩放，高度按原始宽高比计算
+        if (backgroundImage != null) {
+            bgScaledHeight = GameConfig.WINDOW_WIDTH * backgroundImage.getHeight() / backgroundImage.getWidth();
+        } else {
+            bgScaledHeight = GameConfig.WINDOW_HEIGHT;
+        }
+        backgroundOffset = 0;
+        // 道具贴图（火力强化、炸弹、回血）
+        firepowerItemImage = AssetLoader.prepare("prop/bullet plus.png", GameConfig.ITEM_SIZE, 0);
         bombItemImage = AssetLoader.prepare("prop/bomb.jpg", GameConfig.ITEM_SIZE, 0);
         healItemImage = AssetLoader.prepare("prop/heal.png", GameConfig.ITEM_SIZE, 0);
+        shieldItemImage = AssetLoader.prepare("prop/shield.png", GameConfig.ITEM_SIZE, 0);
 
         setPlayerSkin("plane3");
         setPlayerBulletSkin("bullet3");
@@ -107,7 +121,8 @@ public class GameView {
 
     /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → HUD。 */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                       int score, int level, int highScore, GameStatus status) {
+                       int score, int level, int highScore, GameStatus status, double deltaTime) {
+        updateBackground(deltaTime);
         drawBackground();
         drawItems(items);
         drawEnemies(enemies);
@@ -132,9 +147,28 @@ public class GameView {
         void onGameOver(GameStatus status, int score);
     }
 
+    /**
+     * 更新背景滚动偏移：按速度和步长累加，超过缩放高度后归零，实现无缝循环。
+     * 仅 PLAYING 状态时滚动，暂停/结算时背景静止。
+     */
+    private void updateBackground(double deltaTime) {
+        if (backgroundImage == null) return;
+        backgroundOffset += GameConfig.BACKGROUND_SCROLL_SPEED * deltaTime;
+        if (backgroundOffset >= bgScaledHeight) {
+            backgroundOffset -= bgScaledHeight;
+        }
+    }
+
+    /**
+     * 绘制纵向循环滚动背景：两张缩放图上下拼接，偏移量驱动无缝流动。
+     * 背景图原始尺寸 1080×1920，按窗口宽度等比缩放后高度约 1067px，
+     * 大于窗口高度 900px，因此任意偏移下两张图即可填满画面。
+     */
     private void drawBackground() {
         if (backgroundImage != null) {
-            gc.drawImage(backgroundImage, 0, 0, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
+            double y = backgroundOffset - bgScaledHeight;
+            gc.drawImage(backgroundImage, 0, y, GameConfig.WINDOW_WIDTH, bgScaledHeight);
+            gc.drawImage(backgroundImage, 0, y + bgScaledHeight, GameConfig.WINDOW_WIDTH, bgScaledHeight);
         } else {
             gc.setFill(Color.WHITE);
             gc.fillRect(0, 0, GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -230,13 +264,13 @@ public class GameView {
         gc.drawImage(img, cx - img.getWidth() / 2, cy - img.getHeight() / 2);
     }
 
-    /** 道具贴图：火力强化、炸弹、回血有专属图片，护盾暂无贴图。 */
+    /** 道具贴图：火力强化、炸弹、回血、护盾各有专属图片。 */
     private Image itemImageOf(ItemType type) {
         return switch (type) {
             case FIREPOWER -> firepowerItemImage;
             case BOMB -> bombItemImage;
             case HEAL -> healItemImage;
-            default -> null;
+            case SHIELD -> shieldItemImage;
         };
     }
 

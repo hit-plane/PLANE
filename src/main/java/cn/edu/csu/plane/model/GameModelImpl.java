@@ -97,9 +97,13 @@ public class GameModelImpl implements GameModel {
         }
     }
 
-    /** 一局结束：冻结状态，并把本局成绩刷进最高分存档（F09 / F13）。 */
+    /** 一局结束：冻结状态，清除玩家临时效果与场上道具，并把本局成绩刷进最高分存档（F09 / F13）。 */
     private void finishGame(GameStatus status) {
         gameState.setStatus(status);
+        // 清除火力强化等临时效果，避免结算界面仍显示多发子弹
+        player.clearPowerUps();
+        // 清除场上残留道具，避免结算画面仍显示飞行道具
+        items.clear();
         if (gameState.getScore() > highScore) {
             highScore = (int) gameState.getScore();
             highScoreStore.save(highScore);
