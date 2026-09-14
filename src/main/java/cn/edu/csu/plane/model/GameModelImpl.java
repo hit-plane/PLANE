@@ -37,8 +37,18 @@ public class GameModelImpl implements GameModel {
     private final HighScoreStore highScoreStore;
     private int highScore;
     private double spawnTimer;
-    /** 当前难度（F16）：默认普通档，由主菜单在开局前设定，只影响本局数值，不随重开重置。 */
-    private Difficulty difficulty = Difficulty.NORMAL;
+    /**
+     * 当前难度（F16）：默认普通档，由主菜单在开局前设定，只影响本局数值，不随重开重置。
+     * 没有写成字段初始化式，是因为玩家要在构造里按它建机（血量上限/起始火力/子弹速度），
+     * 而字段初始化式会在构造体之后才执行、把构造里赋的值又覆盖回普通档。
+     */
+    private Difficulty difficulty;
+    /**
+     * 作弊开关（主菜单暗号解锁后可切换）：关闭时玩家按本档常规数值建机，
+     * 开启后才享受本档的作弊加成（折磨档的五连发 / 9999 血 / 双倍弹速）。
+     * 与难度一样只影响本局数值，不随重开重置。
+     */
+    private boolean cheatEnabled;
 
     /** 生产用构造：随机源为默认种子，最高分存到工作目录下的 highscore.txt。 */
     public GameModelImpl() {
@@ -56,7 +66,12 @@ public class GameModelImpl implements GameModel {
     /** 随机源与存档都可注入；测试把存档指到临时目录，免得往工作目录写文件。 */
     GameModelImpl(Random random, HighScoreStore highScoreStore) {
         this.gameState = new GameState();
-        this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_SIZE, PLAYER_SIZE);
+        this.difficulty = Difficulty.NORMAL;
+        this.cheatEnabled = false;
+        // 玩家按难度建机：血量上限、起始火力与子弹速度都取本档参数（常规三档即旧版数值）。
+        // 必须在 difficulty 赋值之后，否则建出来的是普通档机体。
+        this.player = new Player(PLAYER_START_X, PLAYER_START_Y, PLAYER_SIZE, PLAYER_SIZE,
+                difficulty, cheatEnabled);
         this.random = random;
         this.highScoreStore = highScoreStore;
         // 默认普通档：普通档的存档就是原文件本身，老存档照旧能读到（F13/F16）。
@@ -507,11 +522,27 @@ public class GameModelImpl implements GameModel {
             return;
         }
         this.difficulty = difficulty;
+        // 玩家机在构造时就建好了，换档要把血量上限/起始火力/子弹速度按新档重算一遍，
+        // 否则会出现"选了折磨档却仍是 100 血、单发"。
+        player.configureFor(difficulty, cheatEnabled);
         this.highScore = highScoreStore.forDifficulty(difficulty).load();
     }
 
     @Override
     public GameStatus getStatus() { return gameState.getStatus(); }
+
+    /**
+     * 开关作弊（主菜单暗号解锁后可切换）：切完立刻按当前难度重算玩家机，
+     * 因此无需重开一局就能看到效果（血量会回满到新的上限）。
+     */
+    @Override
+    public void setCheatEnabled(boolean cheatEnabled) {
+        this.cheatEnabled = cheatEnabled;
+        player.configureFor(difficulty, cheatEnabled);
+    }
+
+    @Override
+    public boolean isCheatEnabled() { return cheatEnabled; }
 
     /** 本局已进行时长（秒）。 */
     @Override

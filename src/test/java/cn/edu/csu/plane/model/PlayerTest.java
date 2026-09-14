@@ -1,16 +1,18 @@
 package cn.edu.csu.plane.model;
 
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * {@link Player} 的单元测试：覆盖初始状态、移动边界、射击、冷却、受伤/无敌帧、
- * 护盾、治疗、火力强化（本局永久）与死亡判定。
+ * 护盾、治疗、火力强化（本局永久）、按难度决定的起始数值（折磨档五连发/9999 血/双倍弹速）与死亡判定。
  *
  * <p>这一层故意用 50×50 的自造机体，跟游戏里配置的玩家尺寸解耦：
  * 射击落点按"机身宽 50 + {@link Bullet#WIDTH}"算，子弹变宽时断言跟着走。</p>
@@ -265,6 +267,110 @@ class PlayerTest {
     }
 
     // ---------------- 开局复位（F01） ----------------
+
+    /**
+     * 作弊开启后的折磨档玩家侧加成：五连发、9999 血、子弹快一倍——而且每次复位
+     * （进入/重开一局）都给回这份底子，所以"所有关卡"都是这个起点，不会打到某一关就掉回常态。
+     */
+    @Test
+    void tormentWithCheatStartsWithFiveShotsMaxHealthAndDoubleBulletSpeed() {
+        Player torment = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, true);
+
+        assertEquals(5, torment.getFirePower(), "开作弊的折磨档开局就是 5 级火力");
+        assertEquals(5, torment.shoot().size(), "开局第一枪就该是五连发");
+        assertEquals(9999, torment.getMaxHealth(), "开作弊的折磨档血量上限为 9999");
+        assertEquals(9999, torment.getHealth(), "开局满血");
+        assertEquals(5000, torment.shoot().get(0).getDamage(),
+                "开作弊的折磨档 5 级单发伤害为 5000（50 × 99.99）");
+
+        // 弹速 2 倍：一发子弹的位移量是一帧内 速度 × 时间，拿相邻两帧的 y 差来量
+        double frame = 1.0 / 60.0;
+        List<Bullet> shots = new ArrayList<>();
+        torment.update(GameConfig.PLAYER_FIRE_INTERVAL);   // 跳过长冷却，保证能开火
+        shots.addAll(torment.shoot());
+        double before = shots.get(0).getY();
+        torment.update(frame);
+        for (Bullet b : shots) {
+            b.update(frame);
+        }
+        double moved = before - shots.get(0).getY();
+        assertEquals(2 * GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL * frame, moved, 0.5,
+                "开作弊的折磨档子弹速度该是基线的两倍");
+
+        // 复位（重开一局 / 进入下一关用的都是它）之后仍是这份底子
+        torment.takeDamage(5000);
+        torment.reset(100, 100);
+        assertEquals(9999, torment.getHealth(), "复位后该回满到 9999");
+        assertEquals(5, torment.getFirePower(), "复位后该回到 5 级起步，而不是掉回单发");
+    }
+
+    /** 作弊关闭时，折磨档也只是"敌人更狠"：玩家仍是单发、100 血、原速。 */
+    @Test
+    void tormentWithoutCheatKeepsLegacyPlayerStats() {
+        Player torment = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, false);
+
+        assertEquals(1, torment.getFirePower(), "没开作弊就没有五连发");
+        assertEquals(1, torment.shoot().size());
+        assertEquals(GameConfig.DEFAULT_HEALTH, torment.getMaxHealth(), "没开作弊就没有 9999 血");
+        assertEquals(GameConfig.DEFAULT_HEALTH, torment.getHealth());
+    }
+
+    /** 切作弊开关立刻生效：同一对象重算后就能打出五连发。 */
+    @Test
+    void cheatCanBeToggledOnAnExistingPlayer() {
+        Player player = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, false);
+        assertEquals(1, player.getFirePower());
+
+        player.configureFor(Difficulty.TORMENT, true);
+        assertEquals(5, player.getFirePower(), "开作弊后该立刻变五连发");
+        assertEquals(9999, player.getMaxHealth());
+        assertEquals(9999, player.getHealth(), "重算会把血回满到新上限");
+
+        player.configureFor(Difficulty.TORMENT, false);
+        assertEquals(1, player.getFirePower(), "关掉作弊就回到单发");
+        assertEquals(GameConfig.DEFAULT_HEALTH, player.getMaxHealth());
+    }
+
+    /** 作弊开启后单发伤害 9999：一枪就能击毁任何敌机（含第 10 关最厚的射击机）。 */
+    @Test
+    void cheatDamageOneShotsTheToughestEnemy() {
+        Player cheater = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, true);
+        // 1 级口径的伤害就是 9999；这里用满级（50% 档）也远高于任何敌机血量
+        int damage = cheater.shoot().get(0).getDamage();
+        assertEquals(5000, damage, "5 级单发伤害 5000");
+
+        Player single = new Player(100, 100, BODY, BODY, Difficulty.TORMENT, false);
+        assertEquals(GameConfig.BULLET_DAMAGE_BASE, single.shoot().get(0).getDamage(),
+                "没开作弊时仍是常规伤害");
+
+        // 用 1 级火力（100%）的作弊伤害做"一枪秒杀"的判定
+        int toughHealth = GameConfig.enemyHealthAt(
+                GameConfig.SHOOTING_ENEMY_HEALTH, 10, Difficulty.TORMENT);
+        assertTrue(GameConfig.playerBulletDamage(1, Difficulty.TORMENT, true) >= toughHealth,
+                "9999 伤害该一枪击毁最厚的敌机（血量 " + toughHealth + "）");
+    }
+
+    /** 常规三档与旧版一致：单发、100 血、原速。 */
+    @Test
+    void normalDifficultyKeepsLegacyPlayerStats() {
+        Player normal = new Player(100, 100, BODY, BODY, Difficulty.NORMAL);
+
+        assertEquals(1, normal.getFirePower());
+        assertEquals(GameConfig.DEFAULT_HEALTH, normal.getMaxHealth());
+        assertEquals(GameConfig.DEFAULT_HEALTH, normal.getHealth());
+
+        double frame = 1.0 / 60.0;
+        List<Bullet> shots = new ArrayList<>();
+        normal.update(GameConfig.PLAYER_FIRE_INTERVAL);
+        shots.addAll(normal.shoot());
+        double before = shots.get(0).getY();
+        normal.update(frame);
+        for (Bullet b : shots) {
+            b.update(frame);
+        }
+        assertEquals(GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL * frame,
+                before - shots.get(0).getY(), 0.5, "普通档弹速仍是基线（一屏一个射击间隔）");
+    }
 
     @Test
     void resetRestoresRunScopedState() {

@@ -52,12 +52,48 @@ class DifficultyTest {
         }
     }
 
-    /** 档位名就是界面上要显示的三个词。 */
+    /** 档位名就是界面上要显示的四个词；隐藏档不可在菜单里直接选。 */
     @Test
     void labelsAreTheChineseNamesShownInMenu() {
         assertEquals("简单", Difficulty.EASY.getLabel());
         assertEquals("普通", Difficulty.NORMAL.getLabel());
         assertEquals("困难", Difficulty.HARD.getLabel());
+        assertEquals("折磨", Difficulty.TORMENT.getLabel());
+
+        assertTrue(Difficulty.EASY.isSelectableInMenu());
+        assertTrue(Difficulty.NORMAL.isSelectableInMenu());
+        assertTrue(Difficulty.HARD.isSelectableInMenu());
+        assertFalse(Difficulty.TORMENT.isSelectableInMenu(), "折磨档是隐藏档，只能靠暗号解锁");
+    }
+
+    /** 折磨档要"难得更狠"：血量/成长不低、掉落更少、间隔更密，且下限单独放宽。 */
+    @Test
+    void tormentIsTheHardestTier() {
+        for (int level = 1; level <= MAX_LEVEL; level++) {
+            int base = GameConfig.NORMAL_ENEMY_HEALTH;
+            assertTrue(GameConfig.enemyHealthAt(base, level, Difficulty.TORMENT)
+                            > GameConfig.enemyHealthAt(base, level, Difficulty.HARD),
+                    "第 " + level + " 关：折磨档该比困难档更厚");
+        }
+
+        assertTrue(Difficulty.TORMENT.getEnemyHealthMultiplier()
+                        > Difficulty.HARD.getEnemyHealthMultiplier(),
+                "折磨档血量倍率该高于困难档");
+        assertTrue(Difficulty.TORMENT.getHealthGrowthMultiplier()
+                        > Difficulty.HARD.getHealthGrowthMultiplier(),
+                "折磨档成长倍率该高于困难档");
+        assertTrue(Difficulty.TORMENT.getSpawnIntervalMultiplier()
+                        < Difficulty.HARD.getSpawnIntervalMultiplier(),
+                "折磨档生成间隔倍率该低于困难档（出得更密）");
+        assertTrue(Difficulty.TORMENT.getSpawnIntervalFloor()
+                        < Difficulty.HARD.getSpawnIntervalFloor(),
+                "折磨档的下限该单独放宽，否则后期会与其它档收敛到同一密度");
+
+        // 折磨档不动机型权重：要的是"什么敌机都来"，不是少一种敌人
+        for (EnemyType type : EnemyType.values()) {
+            assertEquals(1.0, Difficulty.TORMENT.getTypeWeightMultiplier(type), EPS,
+                    "折磨档不该改 " + type + " 的刷新权重");
+        }
     }
 
     /** 三档确实分开了：简单更脆、困难更厚，普通夹在中间；成长曲线同理。 */
@@ -125,8 +161,10 @@ class DifficultyTest {
             double easy = GameConfig.itemDropRateAt(level, Difficulty.EASY);
             double normal = GameConfig.itemDropRateAt(level, Difficulty.NORMAL);
             double hard = GameConfig.itemDropRateAt(level, Difficulty.HARD);
+            double torment = GameConfig.itemDropRateAt(level, Difficulty.TORMENT);
             assertTrue(easy > normal, "第 " + level + " 关：简单档该掉得更多：" + easy + " vs " + normal);
             assertTrue(hard < normal, "第 " + level + " 关：困难档该掉得更少：" + hard + " vs " + normal);
+            assertTrue(torment < hard, "第 " + level + " 关：折磨档该是四档里掉得最少的：" + torment + " vs " + hard);
         }
 
         // 第 1 关与后期（已贴到普通档下限的那一关）各看一眼具体数值
@@ -188,16 +226,23 @@ class DifficultyTest {
         assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(null), EPS, "null 按 1.0 处理");
     }
 
-    /** 生成间隔：简单更稀疏、困难更密，但三档都不跌破共用的安全下限。 */
+    /**
+     * 生成间隔：简单更稀疏、折磨最密，且各档都不跌破自己的下限。
+     *
+     * <p>下限是<b>按档配置</b>的：简单/普通/困难三档共用 {@link GameConfig#SPAWN_INTERVAL_MIN}
+     * 0.175 秒（防止高关卡一帧糊满屏的安全阀），折磨档单独放宽到
+     * {@link Difficulty#getSpawnIntervalFloor()}，因此它到后期比其它档都密。</p>
+     */
     @Test
-    void spawnIntervalDiffersByDifficultyAndRespectsSharedFloor() {
+    void spawnIntervalDiffersByDifficultyAndRespectsPerDifficultyFloor() {
         for (Difficulty difficulty : Difficulty.values()) {
             for (int level = 1; level <= MAX_LEVEL; level++) {
                 double interval = GameConfig.spawnIntervalAt(level, difficulty);
-                assertTrue(interval >= GameConfig.SPAWN_INTERVAL_MIN - EPS,
-                        difficulty.getLabel() + " 第 " + level + " 关间隔跌破了共用下限：" + interval);
+                assertTrue(interval >= difficulty.getSpawnIntervalFloor() - EPS,
+                        difficulty.getLabel() + " 第 " + level + " 关间隔跌破了本档下限："
+                                + interval + " < " + difficulty.getSpawnIntervalFloor());
                 assertTrue(interval <= GameConfig.spawnIntervalAt(level, Difficulty.EASY) + EPS,
-                        "简单档该是三者中最稀疏的");
+                        "简单档该是四档里最稀疏的");
             }
         }
 
@@ -205,15 +250,24 @@ class DifficultyTest {
             double easy = GameConfig.spawnIntervalAt(level, Difficulty.EASY);
             double normal = GameConfig.spawnIntervalAt(level, Difficulty.NORMAL);
             double hard = GameConfig.spawnIntervalAt(level, Difficulty.HARD);
+            double torment = GameConfig.spawnIntervalAt(level, Difficulty.TORMENT);
             assertTrue(easy >= normal, "第 " + level + " 关：简单档不该比普通档更密：" + easy + " vs " + normal);
             assertTrue(hard <= normal, "第 " + level + " 关：困难档不该比普通档更稀疏：" + hard + " vs " + normal);
+            assertTrue(torment <= hard, "第 " + level + " 关：折磨档该是四档里最密的：" + torment + " vs " + hard);
         }
 
         assertEquals(0.6, GameConfig.spawnIntervalAt(1, Difficulty.EASY), EPS, "简单档第 1 关 0.6 秒一架");
         assertEquals(0.4, GameConfig.spawnIntervalAt(1, Difficulty.HARD), EPS, "困难档第 1 关 0.4 秒一架");
-        // 高关卡三档收敛到同一个密度上限：下限不乘倍率，是防止一帧糊满屏的安全阀
+        assertEquals(0.3, GameConfig.spawnIntervalAt(1, Difficulty.TORMENT), EPS, "折磨档第 1 关 0.3 秒一架");
+        // 简单/普通/困难到后期贴同一个共用下限（不乘倍率的安全阀）
         assertEquals(GameConfig.SPAWN_INTERVAL_MIN, GameConfig.spawnIntervalAt(10, Difficulty.EASY), EPS);
         assertEquals(GameConfig.SPAWN_INTERVAL_MIN, GameConfig.spawnIntervalAt(10, Difficulty.HARD), EPS);
+        // 折磨档的下限单独放宽，所以同一关它仍然更密，不会与其它档收敛
+        assertEquals(Difficulty.TORMENT.getSpawnIntervalFloor(),
+                GameConfig.spawnIntervalAt(10, Difficulty.TORMENT), EPS);
+        assertTrue(GameConfig.spawnIntervalAt(10, Difficulty.TORMENT)
+                        < GameConfig.spawnIntervalAt(10, Difficulty.HARD),
+                "折磨档后期该仍比困难档密");
     }
 
     /** 血量下限：再小的基准值也得兜到至少 1 点，任何难度都一样。 */

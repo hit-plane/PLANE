@@ -45,6 +45,57 @@ class GameConfigTest {
         assertTrue(GameConfig.MAX_FIRE_POWER > 2, "上限要比原来的双发更高，否则这次调整没意义");
     }
 
+    /**
+     * 玩家血量上限按难度与作弊开关取：未开作弊四档都是基准 100；开了只有折磨档拿到 9999。
+     * 9999 来自配置 99.99 倍（100 × 99.99），而不是靠 100 倍撞上封顶护栏——这条同时说明
+     * 封顶值（基准 × 100）只是防手滑，不是用来产生 9999 的。
+     */
+    @Test
+    void playerMaxHealthIsCappedPerDifficulty() {
+        // 作弊关闭：四档一律是基准 100，加成完全不参与
+        for (Difficulty difficulty : Difficulty.values()) {
+            assertEquals(GameConfig.DEFAULT_HEALTH, GameConfig.playerMaxHealthAt(difficulty, false),
+                    difficulty.getLabel() + " 档未开作弊时该是基准血量");
+        }
+        // 作弊开启：四档都给 9999（作弊只跟开关走，与难度无关）
+        for (Difficulty difficulty : Difficulty.values()) {
+            assertEquals(9999, GameConfig.playerMaxHealthAt(difficulty, true),
+                    difficulty.getLabel() + " 档开作弊后血量上限该是 9999");
+        }
+    }
+
+    /** 起始火力按作弊开关取：未开一律 1 级，开着四档都给到 5 级（不超上限）。 */
+    @Test
+    void playerStartFirePowerFollowsDifficultyAndCheat() {
+        for (Difficulty difficulty : Difficulty.values()) {
+            assertEquals(1, GameConfig.playerStartFirePowerAt(difficulty, false),
+                    difficulty.getLabel() + " 档未开作弊时该是单发起步");
+        }
+
+        for (Difficulty difficulty : Difficulty.values()) {
+            for (boolean cheat : new boolean[]{false, true}) {
+                int start = GameConfig.playerStartFirePowerAt(difficulty, cheat);
+                assertTrue(start >= 1, difficulty.getLabel() + " 起始火力至少 1 级：" + start);
+                assertTrue(start <= GameConfig.MAX_FIRE_POWER,
+                        difficulty.getLabel() + " 起始火力不该超过上限：" + start);
+            }
+            assertEquals(GameConfig.MAX_FIRE_POWER, GameConfig.playerStartFirePowerAt(difficulty, true),
+                    difficulty.getLabel() + " 档开作弊后该是 5 级起步");
+        }
+    }
+
+    /** 子弹速度按作弊开关取：未开四档都是基线，开着四档都快一倍。 */
+    @Test
+    void playerBulletSpeedFollowsDifficultyAndCheat() {
+        double base = GameConfig.WINDOW_HEIGHT / GameConfig.PLAYER_FIRE_INTERVAL;
+        for (Difficulty difficulty : Difficulty.values()) {
+            assertEquals(base, GameConfig.playerBulletSpeedAt(difficulty, false), 0.001,
+                    difficulty.getLabel() + " 档未开作弊时该保持基线弹速");
+            assertEquals(2 * base, GameConfig.playerBulletSpeedAt(difficulty, true), 0.001,
+                    difficulty.getLabel() + " 档开作弊后弹速该是基线的两倍");
+        }
+    }
+
     @Test
     void difficultyValuesMatchSpec() {
         assertEquals(1000, GameConfig.SCORE_PER_LEVEL, "SRS Q3：每累计 1000 分升 1 关");
@@ -147,6 +198,30 @@ class GameConfigTest {
         }
         assertTrue(GameConfig.playerBulletDamage(0) > 0, "越界等级也要给个正数伤害，不能打出 0 伤害的子弹");
         assertTrue(GameConfig.playerBulletDamage(99) > 0, "超过百分比表的等级沿用最高档，不越界");
+    }
+
+    /**
+     * 作弊开启后的单发伤害：四档 1 级都正好 9999（100 × 99.99），够一枪秒掉任何敌机；
+     * 未开作弊时一律保持常规伤害（作弊只跟开关走，与难度无关）。
+     */
+    @Test
+    void cheatBulletDamageIs9999OnAllDifficulties() {
+        for (Difficulty difficulty : Difficulty.values()) {
+            assertEquals(9999, GameConfig.playerBulletDamage(1, difficulty, true),
+                    difficulty.getLabel() + " 档开作弊后 1 级单发伤害该是 9999");
+            assertEquals(GameConfig.playerBulletDamage(1),
+                    GameConfig.playerBulletDamage(1, difficulty, false),
+                    difficulty.getLabel() + " 档未开作弊时伤害该保持常规值");
+        }
+
+        // 5 级（50% 档）同样被放大：50 × 99.99 = 4999.5 → 5000
+        assertEquals(5000, GameConfig.playerBulletDamage(5, Difficulty.TORMENT, true),
+                "开作弊后 5 级单发伤害该是 5000");
+
+        // 高关卡最厚的敌机（第 10 关射击机）也要一枪打得掉
+        int toughest = GameConfig.enemyHealthAt(GameConfig.SHOOTING_ENEMY_HEALTH, 10, Difficulty.TORMENT);
+        assertTrue(GameConfig.playerBulletDamage(1, Difficulty.TORMENT, true) > toughest,
+                "9999 伤害该超过最厚敌机的血量 " + toughest);
     }
 
     /** 敌机血量随关卡变厚：第 1 关就是基准值，之后逐关递增。 */

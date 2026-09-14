@@ -38,6 +38,12 @@ import java.util.Properties;
  * 与 {@link #spawnIntervalAt(int, Difficulty)}。倍率只做偏移，不动本类里任何一个基础数值：
  * 普通档倍率全为 1.0，取的就是原始口径，与没有难度概念时逐位相同。
  * 不传难度的旧版重载一律按普通档算，行为不变。</p>
+ *
+ * <p>难度里还有一组<b>直接改玩家自身</b>的参数（不算"偏移"而是"起点"）：
+ * {@link #playerStartFirePowerAt(Difficulty)}（开局火力等级）、
+ * {@link #playerMaxHealthAt(Difficulty)}（血量上限）、
+ * {@link #playerBulletSpeedAt(Difficulty)}（子弹速度）。三档常规难度取到的都是旧版数值
+ * （1 级、100 血、原速），只有隐藏的折磨档把它们抬高。</p>
  */
 public final class GameConfig {
 
@@ -112,10 +118,36 @@ public final class GameConfig {
      *
      * <p>等级低于 1 按 1 级算，高于百分比表长度（当前 5 级）按最高档算，
      * 因此改大 {@code player.firepower.max} 时不会越界，只是超出部分沿用 5 级的伤害。</p>
+     *
+     * <p>这是<b>常规口径</b>（作弊关闭）。开着作弊时走
+     * {@link #playerBulletDamage(int, Difficulty, boolean)}，会再乘本档的作弊伤害倍率。</p>
      */
     public static int playerBulletDamage(int firePower) {
         int index = Math.min(Math.max(firePower, 1), BULLET_DAMAGE_PERCENT.length) - 1;
         return Math.max(1, (int) Math.round(BULLET_DAMAGE_BASE * BULLET_DAMAGE_PERCENT[index] / 100.0));
+    }
+
+    /**
+     * 指定火力等级、难度与作弊开关下的单发子弹伤害。
+     *
+     * <p>先按等级算出常规伤害（见 {@link #playerBulletDamage(int)}），作弊开启时再乘本档的
+     * {@code difficulty.<档>.player.cheat.bullet.damage.mult}（缺省 1.0，即等于没加）。
+     * 折磨档配 99.99，于是 100 × 99.99 = <b>9999</b>——一枪秒掉任何敌机
+     * （第 10 关最厚的射击机约 940 血）。</p>
+     *
+     * <p>伤害是在乘倍率<b>之后</b>才取整的，所以 9999 这种"整乘整"的目标值不会被
+     * 各火力档的百分比先四舍五入吃掉（1 级 100% 档：100 × 99.99 = 9999；
+     * 5 级 50% 档：50 × 99.99 = 4999.5 → 5000）。</p>
+     */
+    public static int playerBulletDamage(int firePower, Difficulty difficulty, boolean cheatEnabled) {
+        if (!cheatEnabled) {
+            return playerBulletDamage(firePower);
+        }
+        int index = Math.min(Math.max(firePower, 1), BULLET_DAMAGE_PERCENT.length) - 1;
+        double base = BULLET_DAMAGE_BASE * BULLET_DAMAGE_PERCENT[index] / 100.0;
+        double mult = getDouble(
+                "difficulty." + keyOf(difficulty) + ".player.cheat.bullet.damage.mult", 1.0);
+        return Math.max(1, (int) Math.round(base * mult));
     }
 
     // ---------- 伤害（F07 / Q2） ----------
@@ -125,6 +157,73 @@ public final class GameConfig {
     public static final int COLLISION_DAMAGE = getInt("damage.collision", 20);
     /** 与自爆敌机碰撞的扣血量：自爆机定位为高额伤害（SRS 3.2 敌机系统）。 */
     public static final int BOMBER_COLLISION_DAMAGE = getInt("damage.bomber.collision", 40);
+
+    /**
+     * 指定难度下玩家子弹的飞行速度（像素/秒）。
+     *
+     * <p>基线值 {@code 窗口高度 / 射击间隔} 保证子弹恰好在一个射击间隔内飞完一屏
+     * （时间 × 速度 = 距离），即子弹出屏时刻与下一发子弹生成时刻一致，同屏只有一波子弹。
+     * 各档再乘一个倍率（缺省 1.0）：常规口径读
+     * {@code difficulty.<档>.player.bullet.speed.mult}，作弊开启时改读
+     * {@code difficulty.<档>.player.cheat.bullet.speed.mult}（折磨档配 2.0，子弹快一倍）。</p>
+     */
+    public static double playerBulletSpeedAt(Difficulty difficulty, boolean cheatEnabled) {
+        String suffix = cheatEnabled ? ".player.cheat.bullet.speed.mult" : ".player.bullet.speed.mult";
+        double base = WINDOW_HEIGHT / PLAYER_FIRE_INTERVAL;
+        return base * getDouble("difficulty." + keyOf(difficulty) + suffix, 1.0);
+    }
+
+    /** 常规（未开作弊）口径的子弹速度，等价于 {@code playerBulletSpeedAt(difficulty, false)}。 */
+    public static double playerBulletSpeedAt(Difficulty difficulty) {
+        return playerBulletSpeedAt(difficulty, false);
+    }
+
+    /**
+     * 指定难度下玩家一局的起始火力等级（几级就打几发，仍受 {@link #MAX_FIRE_POWER} 封顶）。
+     *
+     * <p>常规三档都是 1（单发起步）；作弊开启时再叠加
+     * {@code difficulty.<档>.player.cheat.start.firepower}（缺省 0，即等于没加），
+     * 折磨档配 4，于是 1 + 4 = 5 级，开局就是五连发。超上限的部分由
+     * {@link Player} 侧夹到 {@link #MAX_FIRE_POWER}，不会打出超规格弹幕。</p>
+     */
+    public static int playerStartFirePowerAt(Difficulty difficulty, boolean cheatEnabled) {
+        int base = getInt("difficulty." + keyOf(difficulty) + ".player.start.firepower", 1);
+        if (!cheatEnabled) {
+            return base;
+        }
+        return base + getInt("difficulty." + keyOf(difficulty) + ".player.cheat.start.firepower", 0);
+    }
+
+    /** 常规（未开作弊）口径的起始火力，等价于 {@code playerStartFirePowerAt(difficulty, false)}。 */
+    public static int playerStartFirePowerAt(Difficulty difficulty) {
+        return playerStartFirePowerAt(difficulty, false);
+    }
+
+    /**
+     * 指定难度下玩家的血量上限，取值范围钳在 [1, {@link #DEFAULT_HEALTH} × 100]。
+     *
+     * <p>常规口径读 {@code difficulty.<档>.player.health.mult}（缺省 1.0，三档常规难度即原来的 100）；
+     * 作弊开启时改读 {@code difficulty.<档>.player.cheat.health.mult}（缺省 1.0），
+     * 折磨档配 99.99，于是 100 × 99.99 = <b>9999</b>（别配 100——100 × 100 = 10000
+     * 正好贴在封顶值上，等于没封）。上限护栏是防手滑写天文数字倍率。
+     * 开局与重开都会回满到这个上限。</p>
+     */
+    public static int playerMaxHealthAt(Difficulty difficulty, boolean cheatEnabled) {
+        String suffix = cheatEnabled ? ".player.cheat.health.mult" : ".player.health.mult";
+        double mult = getDouble("difficulty." + keyOf(difficulty) + suffix, 1.0);
+        int capped = (int) Math.min(Math.round(DEFAULT_HEALTH * mult), (double) DEFAULT_HEALTH * 100);
+        return Math.max(1, capped);
+    }
+
+    /** 常规（未开作弊）口径的血量上限，等价于 {@code playerMaxHealthAt(difficulty, false)}。 */
+    public static int playerMaxHealthAt(Difficulty difficulty) {
+        return playerMaxHealthAt(difficulty, false);
+    }
+
+    /** 难度对应的配置项前缀片段：{@code difficulty.<档>.<后缀>}，档名一律小写。 */
+    private static String keyOf(Difficulty difficulty) {
+        return difficulty.name().toLowerCase();
+    }
 
     // ---------- 敌机血量与分值（F08；血量为 SRS 未定义项，取值附实现） ----------
     /**
@@ -197,7 +296,11 @@ public final class GameConfig {
     public static final double SPAWN_INTERVAL_BASE = getDouble("spawn.interval.base", 0.5);
     /** 每升 1 关缩短的生成间隔。 */
     public static final double SPAWN_INTERVAL_STEP = getDouble("spawn.interval.step", 0.04);
-    /** 生成间隔下限，防止高关卡瞬间刷满屏。 */
+    /**
+     * 生成间隔下限的默认值，防止高关卡瞬间刷满屏。
+     * 它是 {@code difficulty.<档>.spawn.interval.min} 缺省时的兜底：简单/普通/困难三档都取它，
+     * 折磨档在配置里单独放宽到 0.12 秒。
+     */
     public static final double SPAWN_INTERVAL_MIN = getDouble("spawn.interval.min", 0.175);
     /** 普通敌机的固定权重，决定高级机型的出现占比。 */
     public static final double NORMAL_TYPE_WEIGHT = getDouble("spawn.normal.weight", 3.0);
@@ -208,13 +311,15 @@ public final class GameConfig {
      * 指定关卡、指定难度下的敌机生成间隔（秒）：{@code (基础间隔 - (关卡 - 1) × 每关缩短量) × 难度倍率}，
      * 不低于 {@link #SPAWN_INTERVAL_MIN}。
      *
-     * <p>难度倍率越大出得越稀疏（简单档 1.2，困难档 0.8）。下限不乘倍率、三档共用：
-     * 它是防止高关卡一帧糊满屏的安全阀，不该因为选了困难档就被突破，
-     * 代价是后期三档的密度会收敛到同一个上限，难度差异主要落在前中期。</p>
+     * <p>难度倍率越大出得越稀疏（简单档 1.2，困难档 0.8，折磨档 0.6）。下限不乘倍率、
+     * 由各档自己的 {@link Difficulty#getSpawnIntervalFloor()} 决定：简单/普通/困难三档共用
+     * 0.175 秒，防止高关卡一帧糊满屏，代价是这三档后期会收敛到同一个密度上限；
+     * 折磨档单独放宽到 0.12 秒，后期仍比其它档更密。</p>
      */
     public static double spawnIntervalAt(int level, Difficulty difficulty) {
         double interval = SPAWN_INTERVAL_BASE - Math.max(0, level - 1) * SPAWN_INTERVAL_STEP;
-        return Math.max(interval * difficulty.getSpawnIntervalMultiplier(), SPAWN_INTERVAL_MIN);
+        return Math.max(interval * difficulty.getSpawnIntervalMultiplier(),
+                difficulty.getSpawnIntervalFloor());
     }
 
     /**

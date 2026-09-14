@@ -768,6 +768,74 @@ class GameModelImplTest {
     }
 
     /**
+     * 作弊开关只影响玩家侧底子：关闭时折磨档也只是"敌人更狠"（100 血、单发），
+     * 打开后才是 9999 血 + 5 级火力，而且"所有关卡"都成立——进下一关走同一套 initGame，
+     * 重开一局也不该掉回去。
+     */
+    @Test
+    void cheatToggleControlsPlayerStatsInTormentRun() {
+        model.setDifficulty(Difficulty.TORMENT);
+        model.setCheatEnabled(false);
+        model.initGame();
+
+        Player player = model.getPlayer();
+        assertEquals(GameConfig.DEFAULT_HEALTH, model.getHealth(), "没开作弊时折磨档也是 100 血");
+        assertEquals(1, player.getFirePower(), "没开作弊时折磨档也是单发");
+        assertFalse(model.isCheatEnabled());
+
+        // 开局前打开开关：立刻重算，不用重开一局
+        model.setCheatEnabled(true);
+        assertTrue(model.isCheatEnabled());
+        assertEquals(9999, model.getHealth(), "开作弊后该立刻变 9999 血");
+        assertEquals(9999, player.getMaxHealth(), "血量上限也该跟着变，血条才不会溢出");
+        assertEquals(5, player.getFirePower(), "开作弊后该立刻变 5 级火力");
+        assertEquals(5, player.shoot().size(), "接着打的第一枪就是五连发");
+        assertEquals(5000, player.shoot().get(0).getDamage(), "开作弊后的单发伤害该被放大到 5000");
+
+        // 攒够分数升到第 3 关：仍在同一局里，底子不该变
+        model.addScore(2 * GameConfig.SCORE_PER_LEVEL);
+        assertEquals(3, model.getLevel(), "累计 2000 分该到第 3 关");
+        assertEquals(9999, model.getHealth(), "换关之后血量上限与当前血量都该保持");
+        assertEquals(5, player.getFirePower(), "换关之后仍是 5 级火力");
+
+        // 重开一局同样是这份底子（reset 回到本档起点，而不是旧版的单发/100 血）
+        model.initGame();
+        assertEquals(9999, model.getHealth(), "重开一局仍是 9999 血");
+        assertEquals(5, model.getPlayer().getFirePower(), "重开一局仍是 5 级火力");
+
+        // 关掉作弊同样立刻生效
+        model.setCheatEnabled(false);
+        assertEquals(GameConfig.DEFAULT_HEALTH, model.getHealth(), "关掉作弊该回到 100 血");
+        assertEquals(1, model.getPlayer().getFirePower(), "关掉作弊该回到单发");
+    }
+
+    /** 只按 difficulty 与作弊开关建机，所以普通档仍与旧版一致：100 血、单发（即便开了作弊）。 */
+    @Test
+    void normalRunKeepsLegacyPlayerStats() {
+        model.setDifficulty(Difficulty.NORMAL);
+        model.setCheatEnabled(false);
+        model.initGame();
+
+        assertEquals(GameConfig.DEFAULT_HEALTH, model.getHealth());
+        assertEquals(1, model.getPlayer().getFirePower());
+    }
+
+    /** 作弊与难度无关：困难档开着作弊同样是 9999 血 + 5 级火力（简单/普通/困难一视同仁）。 */
+    @Test
+    void cheatBuffsApplyOnEveryDifficulty() {
+        for (Difficulty difficulty : new Difficulty[]{Difficulty.EASY, Difficulty.NORMAL, Difficulty.HARD}) {
+            GameModelImpl target = new GameModelImpl(new Random(SEED));
+            target.setDifficulty(difficulty);
+            target.setCheatEnabled(true);
+            target.initGame();
+
+            assertEquals(9999, target.getHealth(), difficulty.getLabel() + " 档开作弊该是 9999 血");
+            assertEquals(5, target.getPlayer().getFirePower(),
+                    difficulty.getLabel() + " 档开作弊该是 5 级火力");
+        }
+    }
+
+    /**
      * 掷机型时要按当前难度乘各机型的权重倍率：困难档射击机明显更少，其余机型权重保持不变。
      *
      * <p>注意"权重不变"不等于"占比不变"：权重是按关卡算完再一起归一化的，压掉射击机那一份，

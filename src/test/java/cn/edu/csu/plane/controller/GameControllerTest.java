@@ -431,6 +431,7 @@ class GameControllerTest {
         private int score;
         private int highScore;
         private Difficulty difficulty = Difficulty.NORMAL;
+        private boolean cheatEnabled;
 
         private int initGameCount;
         private int updateCount;
@@ -552,6 +553,16 @@ class GameControllerTest {
         @Override
         public void setDifficulty(Difficulty difficulty) {
             this.difficulty = difficulty;
+        }
+
+        @Override
+        public void setCheatEnabled(boolean cheatEnabled) {
+            this.cheatEnabled = cheatEnabled;
+        }
+
+        @Override
+        public boolean isCheatEnabled() {
+            return cheatEnabled;
         }
 
         @Override

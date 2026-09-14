@@ -12,8 +12,8 @@ import java.nio.file.Path;
  *
  * <p>最高分按难度分档（F16）：{@link #forDifficulty} 按档位派生不同的存档文件——
  * 普通档沿用原来的 {@code highscore.txt}（老存档继续有效），简单/困难另存
- * {@code highscore_easy.txt} / {@code highscore_hard.txt}。三档各记各的，
- * 简单档刷出来的高分不会盖掉困难档的成绩。</p>
+ * {@code highscore_easy.txt} / {@code highscore_hard.txt}，隐藏的折磨档存
+ * {@code highscore_torment.txt}。各档各记各的，简单档刷出来的高分不会盖掉困难档的成绩。</p>
  */
 public class HighScoreStore {
 
@@ -48,11 +48,12 @@ public class HighScoreStore {
         return new HighScoreStore(siblingPath(suffixOf(difficulty)));
     }
 
-    /** 档位后缀：简单 easy、困难 hard；普通不走派生，不该问到这里。 */
+    /** 档位后缀：简单 easy、困难 hard、折磨 torment；普通不走派生，不该问到这里。 */
     private static String suffixOf(Difficulty difficulty) {
         return switch (difficulty) {
             case EASY -> "easy";
             case HARD -> "hard";
+            case TORMENT -> "torment";
             case NORMAL -> throw new IllegalArgumentException("普通档复用原存档，不该派生新文件");
         };
     }

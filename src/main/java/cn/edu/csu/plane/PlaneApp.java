@@ -10,12 +10,18 @@ import cn.edu.csu.plane.view.GameView;
 import cn.edu.csu.plane.view.MainMenuView;
 import cn.edu.csu.plane.view.PauseView;
 import javafx.application.Application;
+import javafx.event.EventHandler;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
+import javafx.scene.input.KeyCode;
 import javafx.scene.input.KeyEvent;
 import javafx.scene.layout.StackPane;
 import javafx.stage.Screen;
 import javafx.stage.Stage;
+
+import java.util.ArrayDeque;
+import java.util.Deque;
+import java.util.List;
 
 /**
  * 程序入口：装配 model / view / controller 三层，叠加画布、主菜单、暂停与结算界面，
@@ -24,6 +30,10 @@ import javafx.stage.Stage;
  * <p>逻辑坐标系固定为配置里的窗口尺寸（模型边界与之绑定），实际显示交给一层缩放容器：
  * 窗口放不下时整体等比缩小并居中，放得下就保持原始尺寸，两边多出的空间留白（letterbox）。
  * 这样小屏也能完整显示，且画面比例与命中判定都不会变形。</p>
+ *
+ * <p><b>隐藏难度</b>：主菜单里依次敲下暗号 {@link #TORMENT_CODE} 会解锁第四档「折磨」
+ * （见 {@link MainMenuView#unlockTorment()}），它不在常规三档里出现。暗号监听只在菜单态
+ * 挂载，开局即摘除。</p>
  */
 public class PlaneApp extends Application {
 
@@ -33,6 +43,28 @@ public class PlaneApp extends Application {
     /** 估算的窗口装饰（标题栏/边框）占用，避免按屏幕满高摆放时被标题栏顶出屏幕。 */
     private static final double SCREEN_MARGIN_W = 24;
     private static final double SCREEN_MARGIN_H = 64;
+
+    /**
+     * 隐藏难度「折磨」的解锁暗号：在主菜单依次敲 k-s-k-b-l 即出现第四档难度。
+     *
+     * <p>只在主菜单生效：一局进行中按这些键，{@code s} 会被
+     * {@link cn.edu.csu.plane.controller.InputHandler} 当成下移指令，而暗号里恰好含 s，
+     * 所以把监听限制在菜单态可以彻底避免"输暗号时战机乱窜"；开局的瞬间就把监听摘掉
+     * （见 {@code onStart} 里的 {@code detachSecretCode()}），一局进行中再敲也不会触发。</p>
+     *
+     * <p>缓冲只保留"最近 N 个字母"（N = 暗号长度），所以不必区分长按重复与输入超时：
+     * 只要最近 5 次字母键正好是暗号就解锁。数字键、方向键等非字母键不参与，
+     * 玩家正常操作不会被算进来。</p>
+     */
+    private static final List<KeyCode> TORMENT_CODE =
+            List.of(KeyCode.K, KeyCode.S, KeyCode.K, KeyCode.B, KeyCode.L);
+
+    /** 暗号输入缓冲：只存最近的字母键，长度封顶为暗号长度。 */
+    private final Deque<KeyCode> codeBuffer = new ArrayDeque<>();
+    /** 暗号监听本身：开局时要能摘掉，否则一局进行中再敲会误触发（s 还是下移键）。 */
+    private EventHandler<KeyEvent> secretCodeHandler;
+    /** 主菜单是否正显示，决定暗号是否在监听状态。 */
+    private boolean menuShown = true;
 
     @Override
     public void start(Stage stage) {
@@ -107,6 +139,7 @@ public class PlaneApp extends Application {
             pauseView.getNode().setVisible(false);
             refreshMenuHighScore.run();
             menuView.getNode().setVisible(true);
+            attachSecretCode(scene);
             controller.toMenu();
         });
 
@@ -119,16 +152,31 @@ public class PlaneApp extends Application {
         // 主菜单：按所选皮肤与难度开始游戏。难度要在 start() 之前写进模型，
         // start() 内部会 initGame()，生成敌机时读的就是这个值。
         menuView.setOnDifficultyChange(difficulty -> refreshMenuHighScore.run());
+        // 作弊开关（暗号解锁后出现）：切一下就写进模型并重算玩家机，开局前定好即可；
+        // 模型侧对"未开局"状态是安全的（只是重建本档数值，不影响菜单态）。
+        menuView.setOnCheatChange(cheat -> model.setCheatEnabled(cheat));
         refreshMenuHighScore.run();
         menuView.setOnStart(() -> {
             gameView.setPlayerSkin(menuView.getSelectedPlaneSkin());
             gameView.setPlayerBulletSkin(menuView.getSelectedBulletSkin());
             model.setDifficulty(menuView.getSelectedDifficulty());
+            model.setCheatEnabled(menuView.isCheatEnabled());
+            detachSecretCode(scene);
+            menuShown = false;
             menuView.getNode().setVisible(false);
             gameOverView.getNode().setVisible(false);
             pauseView.getNode().setVisible(false);
             controller.start();
         });
+
+        // 暗号监听只在菜单态生效：开局时摘掉（见上面的 setOnStart），回到菜单再挂上。
+        secretCodeHandler = event -> {
+            if (menuShown && handleSecretKey(event.getCode())) {
+                menuView.unlockTorment();
+                refreshMenuHighScore.run();
+            }
+        };
+        attachSecretCode(scene);
 
         // 结算面板按钮
         gameOverView.setOnRestart(() -> {
@@ -139,6 +187,7 @@ public class PlaneApp extends Application {
             gameOverView.getNode().setVisible(false);
             refreshMenuHighScore.run();
             menuView.getNode().setVisible(true);
+            attachSecretCode(scene);
             controller.toMenu();
         });
 
@@ -152,6 +201,44 @@ public class PlaneApp extends Application {
         stage.setMinHeight(LOGICAL_H * 0.4);
         stage.centerOnScreen();
         stage.show();
+    }
+
+    /** 挂上暗号监听（只在主菜单期间挂着）。已经在挂时不重复添加。 */
+    private void attachSecretCode(Scene scene) {
+        if (secretCodeHandler == null) {
+            return;
+        }
+        scene.removeEventHandler(KeyEvent.KEY_PRESSED, secretCodeHandler);   // 去重，避免重挂多次
+        scene.addEventHandler(KeyEvent.KEY_PRESSED, secretCodeHandler);
+        codeBuffer.clear();
+        menuShown = true;
+    }
+
+    /** 摘掉暗号监听并清空缓冲：一局进行中不该再响应暗号（s 同时还是下移键）。 */
+    private void detachSecretCode(Scene scene) {
+        menuShown = false;
+        if (secretCodeHandler != null) {
+            scene.removeEventHandler(KeyEvent.KEY_PRESSED, secretCodeHandler);
+        }
+        codeBuffer.clear();
+    }
+
+    /**
+     * 把一次按键喂进暗号缓冲，命中则返回 true（由调用方去解锁隐藏档）。
+     *
+     * <p>只认字母键：数字键、方向键、空格等一律忽略，也不会清空缓冲——玩家的正常操作
+     * 不该把已经敲了一半的暗号作废。缓冲区长度封顶为暗号长度，超出的旧键自动滚出。</p>
+     */
+    private boolean handleSecretKey(KeyCode code) {
+        if (!code.isLetterKey()) {
+            return false;
+        }
+        codeBuffer.addLast(code);
+        while (codeBuffer.size() > TORMENT_CODE.size()) {
+            codeBuffer.removeFirst();
+        }
+        return codeBuffer.size() == TORMENT_CODE.size()
+                && List.copyOf(codeBuffer).equals(TORMENT_CODE);
     }
 
     /**

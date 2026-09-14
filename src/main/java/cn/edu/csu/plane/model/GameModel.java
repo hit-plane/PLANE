@@ -65,10 +65,21 @@ public interface GameModel {
     Difficulty getDifficulty();
 
     /**
-     * 切换难度（F16）。设置后立即生效：敌机血量、掉落概率、生成密度与最高分显示都按新档位算。
+     * 切换难度（F16）。设置后立即生效：敌机血量、掉落概率、生成密度、玩家血量上限/起始火力/
+     * 弹速以及最高分显示都按新档位算。
      * 由装配层保证调用时机——主菜单选好后、{@link #initGame()} 开局之前。
      */
     void setDifficulty(Difficulty difficulty);
+
+    /**
+     * 开关作弊：关闭时玩家按本档常规数值建机，开启后才享受本档的作弊加成
+     * （折磨档的五连发 / 9999 血 / 双倍弹速）。切换后立即重算玩家机，
+     * 无需重开一局；血量会回满到新的上限。同样由主菜单在开局前设定。
+     */
+    void setCheatEnabled(boolean cheatEnabled);
+
+    /** 返回作弊是否已开启。 */
+    boolean isCheatEnabled();
 
     /** 返回当前游戏状态。 */
     GameStatus getStatus();

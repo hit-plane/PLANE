@@ -2,6 +2,7 @@ package cn.edu.csu.plane.view;
 
 import cn.edu.csu.plane.util.Difficulty;
 import javafx.application.Platform;
+import javafx.scene.Node;
 import javafx.scene.control.Button;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
@@ -90,14 +91,81 @@ class MainMenuViewTest {
         assertEquals(Difficulty.NORMAL, menu.getSelectedDifficulty());
     }
 
-    /** 三档按钮都在菜单上，文字就是档位名，从上到下由易到难。 */
+    /** 常规三档按钮都显示在菜单上，文字就是档位名，由易到难；隐藏的折磨档不显示。 */
     @Test
     void menuShowsThreeDifficultyButtons() {
         MainMenuView menu = onFxThread(MainMenuView::new);
         List<String> labels = onFxThread(() ->
-                Arrays.stream(difficultyButtonsOf(menu)).map(Button::getText).toList());
+                Arrays.stream(difficultyButtonsOf(menu))
+                        .filter(Node::isVisible)
+                        .map(Button::getText).toList());
 
         assertEquals(List.of("简单", "普通", "困难"), labels);
+        assertFalse(menu.isTormentUnlocked(), "没输暗号时折磨档不该出现");
+    }
+
+    /** 暗号解锁后折磨档按钮出现并被自动选中（暗号本身的匹配逻辑在 PlaneApp 里）。 */
+    @Test
+    void unlockTormentShowsAndSelectsTheHiddenTier() {
+        MainMenuView menu = onFxThread(MainMenuView::new);
+        onFxThread(() -> {
+            menu.unlockTorment();
+            return null;
+        });
+
+        assertTrue(menu.isTormentUnlocked(), "解锁后折磨档按钮该可见");
+        assertEquals(Difficulty.TORMENT, menu.getSelectedDifficulty(), "解锁后该自动选中折磨档");
+    }
+
+    /**
+     * 作弊开关：解锁前不存在（按钮不显示、状态为关），解锁后可以自己按，
+     * 而且解锁本身<b>不会</b>顺手把作弊打开——要不要用由玩家决定。
+     */
+    @Test
+    void cheatToggleAppearsAfterUnlockAndNotifies() {
+        AtomicReference<Boolean> notified = new AtomicReference<>();
+        MainMenuView menu = onFxThread(() -> {
+            MainMenuView view = new MainMenuView();
+            view.setOnCheatChange(notified::set);
+            return view;
+        });
+
+        assertFalse(menu.isCheatEnabled(), "默认不该开着作弊");
+        assertFalse(cheatButtonOf(menu).isVisible(), "没输暗号时作弊开关不该出现");
+
+        onFxThread(() -> {
+            menu.unlockTorment();
+            return null;
+        });
+        assertTrue(cheatButtonOf(menu).isVisible(), "解锁后作弊开关该出现");
+        assertFalse(menu.isCheatEnabled(), "解锁只是提供入口，不该自动开启作弊");
+        assertEquals("作弊：未开启", cheatButtonOf(menu).getText());
+
+        onFxThread(() -> {
+            cheatButtonOf(menu).fire();
+            return null;
+        });
+        assertTrue(menu.isCheatEnabled(), "按一下该打开");
+        assertEquals(Boolean.TRUE, notified.get(), "状态变化该通知装配层写进模型");
+        assertEquals("作弊：已开启", cheatButtonOf(menu).getText(), "按钮文字要能看出当前状态");
+
+        onFxThread(() -> {
+            cheatButtonOf(menu).fire();
+            return null;
+        });
+        assertFalse(menu.isCheatEnabled(), "再按一下该关掉");
+        assertEquals(Boolean.FALSE, notified.get());
+    }
+
+    /** 反射取私有的作弊开关按钮。 */
+    private static Button cheatButtonOf(MainMenuView menu) {
+        try {
+            Field field = MainMenuView.class.getDeclaredField("cheatButton");
+            field.setAccessible(true);
+            return (Button) field.get(menu);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("取不到作弊开关按钮", e);
+        }
     }
 
     /** 点按钮换档，并把新档位通知给装配层（由它去刷新对应难度的最高分）。 */
@@ -125,13 +193,17 @@ class MainMenuViewTest {
         assertEquals(Difficulty.HARD, notified.get());
     }
 
-    /** 反射取私有的难度按钮数组，顺序与界面一致（简单/普通/困难）。 */
+    /**
+     * 反射取私有的难度按钮数组，顺序与界面一致（简单/普通/困难/折磨）。
+     * 数组有四项，但隐藏档默认 {@code visible=false}，所以界面上仍是三档；
+     * 索引 0/1/2 恒为 简单/普通/困难，索引 3 是暗号解锁的折磨档。
+     */
     private static Button[] difficultyButtonsOf(MainMenuView menu) {
         try {
             Field field = MainMenuView.class.getDeclaredField("difficultyButtons");
             field.setAccessible(true);
             Button[] buttons = (Button[]) field.get(menu);
-            assertEquals(3, buttons.length, "难度按钮该有简单/普通/困难三个");
+            assertEquals(4, buttons.length, "难度按钮该有简单/普通/困难三档 + 隐藏的折磨档");
             return buttons;
         } catch (ReflectiveOperationException e) {
             throw new IllegalStateException("取不到难度按钮数组", e);

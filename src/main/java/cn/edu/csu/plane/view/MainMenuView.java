@@ -30,6 +30,11 @@ import java.util.function.Consumer;
  *
  * <p>难度默认选中普通档——与旧版手感一致的那一档。切换难度只是告诉装配层，
  * 由它去刷新最高分显示（最高分按难度分档），菜单自己不碰模型。</p>
+ *
+ * <p><b>隐藏档</b>：{@link Difficulty#TORMENT} 的按钮一开始是隐藏的（用 {@code visible=false}
+ * 占住位置，所以另外三档的位置和布局不会因为解锁而跳动），只有装配层在检测到暗号后
+ * 调用 {@link #unlockTorment()} 才显示并自动选中它；同时弹出一行提示，让玩家明白
+ * 现在选中的不是常规难度，不至于误以为默认难度变了。</p>
  */
 public class MainMenuView {
 
@@ -48,6 +53,9 @@ public class MainMenuView {
             "-fx-background-color: transparent; -fx-border-color: transparent; -fx-border-width: 2; -fx-cursor: hand;";
     private static final String SELECTED_STYLE =
             "-fx-background-color: rgba(0,191,255,0.25); -fx-border-color: #00bfff; -fx-border-width: 2; -fx-cursor: hand;";
+    /** 作弊开关"已开启"的配色：与难度选中色区分开（红），避免误认成"选中了某个难度"。 */
+    private static final String CHEAT_ON_STYLE =
+            "-fx-background-color: rgba(255,82,82,0.22); -fx-border-color: #ff5252; -fx-border-width: 2; -fx-cursor: hand;";
     /** 图片按钮：连内边距都清掉，图片之外不留按钮自带的灰底与边线。 */
     private static final String IMAGE_BUTTON_STYLE =
             "-fx-background-color: transparent; -fx-border-color: transparent; -fx-background-insets: 0; "
@@ -58,10 +66,14 @@ public class MainMenuView {
     private static final double DIFFICULTY_BUTTON_WIDTH = 96;
     private static final double DIFFICULTY_BUTTON_HEIGHT = 40;
     private static final double DIFFICULTY_FONT_SIZE = 18;
+    /** 作弊开关比难度按钮宽一些：要放得下"作弊：已开启"/"作弊：未开启"两行字。 */
+    private static final double CHEAT_BUTTON_WIDTH = 168;
 
-    /** 难度选项的排列顺序：由易到难。 */
-    private static final Difficulty[] DIFFICULTIES =
-            {Difficulty.EASY, Difficulty.NORMAL, Difficulty.HARD};
+    /**
+     * 难度选项的排列顺序：由易到难，隐藏档排最后。
+     * 隐藏档的按钮一开始 {@code visible=false}，所以常规状态下看上去仍是简单/普通/困难三档。
+     */
+    private static final Difficulty[] DIFFICULTIES = Difficulty.values();
 
     private final StackPane root = new StackPane();
     private final Label highScoreLabel = new Label();
@@ -70,6 +82,17 @@ public class MainMenuView {
     private final Button[] planeButtons;
     private final Button[] bulletButtons;
     private final Button[] difficultyButtons = new Button[DIFFICULTIES.length];
+    /** 隐藏档（折磨）在 {@link #DIFFICULTIES} 里的下标。 */
+    private static final int TORMENT_INDEX = indexOfTorment();
+    /** 解锁后才显示的"折磨模式"提示标签。 */
+    private final Label tormentHint = new Label("折磨模式已开启");
+    /** 解锁后才显示的作弊开关按钮：关=按常规数值建机，开=享受本档作弊加成。 */
+    private final Button cheatButton = new Button();
+    /** 作弊开关状态：默认关闭，只有玩家自己按下去才生效。 */
+    private boolean cheatEnabled;
+    /** 作弊开关变化时的回调，由装配层绑定到模型（实时重算玩家机）。 */
+    private Consumer<Boolean> onCheatChange;
+
     private int selectedPlane;
     private int selectedBullet;
     /** 选中的难度下标，默认落在普通档上（{@link #DIFFICULTIES} 的中间一项）。 */
@@ -120,7 +143,7 @@ public class MainMenuView {
         bulletRow.getChildren().addAll(bulletButtons);
         bulletRow.setAlignment(Pos.CENTER);
 
-        // 难度按钮行：文字按钮，选中项与皮肤一样用蓝框高亮
+        // 难度按钮行：文字按钮，选中项与皮肤一样用蓝框高亮；隐藏档先不显示但占位
         for (int i = 0; i < difficultyButtons.length; i++) {
             Difficulty difficulty = DIFFICULTIES[i];
             Button button = new Button(difficulty.getLabel());
@@ -129,6 +152,10 @@ public class MainMenuView {
             button.setStyle(difficultyStyle(false));
             int idx = i;
             button.setOnAction(e -> selectDifficulty(idx));
+            if (!difficulty.isSelectableInMenu()) {
+                // 隐藏而不是禁用：常规三档的布局位置保持稳定，解锁时不会整行跳动
+                button.setVisible(false);
+            }
             difficultyButtons[i] = button;
         }
 
@@ -139,9 +166,23 @@ public class MainMenuView {
         difficultyRow.getChildren().addAll(difficultyButtons);
         difficultyRow.setAlignment(Pos.CENTER);
 
+        tormentHint.setTextFill(Color.web("#ff5252"));
+        tormentHint.setFont(Font.font("SansSerif", 16));
+        tormentHint.setVisible(false);
+
+        // 作弊开关：默认关闭，解锁隐藏档后才出现。文字直接写状态，避免"按了不知道现在是开还是关"
+        cheatButton.setPrefSize(CHEAT_BUTTON_WIDTH, DIFFICULTY_BUTTON_HEIGHT);
+        cheatButton.setFont(Font.font("SansSerif", DIFFICULTY_FONT_SIZE));
+        cheatButton.setOnAction(e -> setCheatEnabled(!cheatEnabled));
+        cheatButton.setVisible(false);
+        refreshCheatButton();
+        HBox cheatRow = new HBox(10, cheatButton);
+        cheatRow.setAlignment(Pos.CENTER);
+
         // 难度排在开始按钮正下方：它是开局前最先要定的事，也离窗口下沿最远——
         // 小屏上窗口底部可能被裁掉一截，这一行不该放在最底下（最高分标签本身没有交互，压在最下面无妨）
-        VBox box = new VBox(20, title, startButton, difficultyRow, planeRow, bulletRow, highScoreLabel);
+        VBox box = new VBox(20, title, startButton, difficultyRow, tormentHint, cheatRow,
+                planeRow, bulletRow, highScoreLabel);
         box.setAlignment(Pos.CENTER);
         root.getChildren().add(box);
 
@@ -149,6 +190,16 @@ public class MainMenuView {
         selectPlane(2);
         selectBullet(2);
         selectDifficulty(1);
+    }
+
+    /** 隐藏档在 {@link #DIFFICULTIES} 中的下标；枚举里没有隐藏档时返回 -1。 */
+    private static int indexOfTorment() {
+        for (int i = 0; i < DIFFICULTIES.length; i++) {
+            if (!DIFFICULTIES[i].isSelectableInMenu()) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**
@@ -210,6 +261,55 @@ public class MainMenuView {
     /** 难度按钮的样式：文字按钮的公共部分 + 选中/未选中两种底色与描边。 */
     private static String difficultyStyle(boolean selected) {
         return (selected ? SELECTED_STYLE : UNSELECTED_STYLE) + DIFFICULTY_BUTTON_BASE;
+    }
+
+    /**
+     * 解锁隐藏档（折磨）：显示它的按钮与作弊开关、弹出提示，并自动选中它。
+     *
+     * <p>由装配层在暗号命中后调用。重复调用无副作用（已经解锁时只是再选一次）。</p>
+     * <p>注意作弊开关<b>不会</b>被顺手打开：解锁只是"提供了入口"，要不要用由玩家自己按。</p>
+     */
+    public void unlockTorment() {
+        if (TORMENT_INDEX < 0) {
+            return;
+        }
+        difficultyButtons[TORMENT_INDEX].setVisible(true);
+        tormentHint.setVisible(true);
+        cheatButton.setVisible(true);
+        selectDifficulty(TORMENT_INDEX);
+    }
+
+    /** 作弊开关的当前状态。 */
+    public boolean isCheatEnabled() {
+        return cheatEnabled;
+    }
+
+    /**
+     * 切换作弊开关：按钮文字与配色跟着变，并通知装配层（由它把开关写进模型、实时重算玩家机）。
+     * 未解锁（按钮还没出现）时也允许调用，只是玩家看不到入口。
+     */
+    public void setCheatEnabled(boolean enabled) {
+        this.cheatEnabled = enabled;
+        refreshCheatButton();
+        if (onCheatChange != null) {
+            onCheatChange.accept(enabled);
+        }
+    }
+
+    /** 开关按钮的外观：文字直接写明状态，开启时用红色描边，一眼能看出现在是开还是关。 */
+    private void refreshCheatButton() {
+        cheatButton.setText(cheatEnabled ? "作弊：已开启" : "作弊：未开启");
+        cheatButton.setStyle((cheatEnabled ? CHEAT_ON_STYLE : UNSELECTED_STYLE) + DIFFICULTY_BUTTON_BASE);
+    }
+
+    /** 注册作弊开关回调，由装配层绑定到模型的 {@code setCheatEnabled}。 */
+    public void setOnCheatChange(Consumer<Boolean> onChange) {
+        this.onCheatChange = onChange;
+    }
+
+    /** 隐藏档是否已解锁（按钮可见）。测试与装配层用它判断暗号是否生效。 */
+    public boolean isTormentUnlocked() {
+        return TORMENT_INDEX >= 0 && difficultyButtons[TORMENT_INDEX].isVisible();
     }
 
     public Node getNode() {
