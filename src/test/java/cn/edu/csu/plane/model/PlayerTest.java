@@ -10,7 +10,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * {@link Player} 的单元测试：覆盖初始状态、移动边界、射击、冷却、受伤/无敌帧、
- * 护盾、治疗、火力强化与死亡判定。
+ * 护盾、治疗、火力强化（本局永久）与死亡判定。
  *
  * <p>这一层故意用 50×50 的自造机体，跟游戏里配置的玩家尺寸解耦：
  * 射击落点按"机身宽 50 + {@link Bullet#WIDTH}"算，子弹变宽时断言跟着走。</p>
@@ -225,31 +225,34 @@ class PlayerTest {
         assertEquals(GameConfig.WINDOW_HEIGHT - player.getHeight(), player.getY(), 0.001);
     }
 
-    // ---------------- 火力强化时限（F10 / Q6） ----------------
+    // ---------------- 火力强化永久生效（F10） ----------------
 
+    /** 火力强化本局永久：过了旧版 10 秒时限也不会回落单发。 */
     @Test
-    void firePowerRevertsAfterPowerUpDuration() {
+    void firePowerBoostIsPermanentForTheRun() {
         player.enhanceFirePower();
         assertEquals(2, player.getFirePower());
 
-        player.update(GameConfig.FIREPOWER_DURATION - 0.1);
-        assertEquals(2, player.getFirePower(), "时限内应保持强化");
+        player.update(10.0);
+        assertEquals(2, player.getFirePower(), "10 秒后不该回落，火力强化是本局永久的");
 
-        player.update(0.2);
-        assertEquals(1, player.getFirePower(), "过了时限应回落单发");
+        player.update(600.0);
+        assertEquals(2, player.getFirePower(), "再久也不衰减");
+        assertEquals(2, player.shoot().size(), "永久双发：之后每一枪都是两发");
     }
 
+    /** 重复拾取是"永久叠加等级"，不是刷新时限：吃到几次就一直打几发。 */
     @Test
-    void pickingUpFirePowerAgainRefreshesTimer() {
+    void pickingUpFirePowerAgainStacksPermanently() {
         player.enhanceFirePower();
-        player.update(GameConfig.FIREPOWER_DURATION - 0.5);
+        player.update(10.0);
 
-        player.enhanceFirePower();                              // 再吃一个：刷新计时，不是叠加时长
-        player.update(GameConfig.FIREPOWER_DURATION - 0.5);
-        assertEquals(3, player.getFirePower(), "再吃一个升到 3 级，且时限重新开始算");
+        player.enhanceFirePower();
+        assertEquals(3, player.getFirePower(), "再吃一个升到 3 级，且之前那一级不会被时间吃掉");
 
-        player.update(0.6);
-        assertEquals(1, player.getFirePower(), "刷新后的时限过了照样回落单发");
+        player.update(60.0);
+        assertEquals(3, player.getFirePower(), "时限机制已删除，等级不再随时间回落");
+        assertEquals(3, player.shoot().size(), "3 级就该一直是三发");
     }
 
     // ---------------- 开局复位（F01） ----------------

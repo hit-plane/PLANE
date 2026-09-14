@@ -28,7 +28,6 @@ class GameConfigTest {
         assertEquals(10, GameConfig.BULLET_DAMAGE, "SRS Q2：敌弹扣 10");
         assertEquals(1.0, GameConfig.PLAYER_INVINCIBLE_TIME, 0.001, "SRS Q2：受击后 1 秒无敌");
         assertEquals(0.3, GameConfig.PLAYER_FIRE_INTERVAL, 0.001, "GWT-03：射击间隔 300ms");
-        assertEquals(10.0, GameConfig.FIREPOWER_DURATION, 0.001, "SRS Q6：火力强化持续 10 秒");
     }
 
     @Test

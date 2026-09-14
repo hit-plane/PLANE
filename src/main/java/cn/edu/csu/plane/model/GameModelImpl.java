@@ -175,7 +175,7 @@ public class GameModelImpl implements GameModel {
      * 血量按当前关卡与当前难度放大（{@link GameConfig#enemyHealthAt}），关卡越高、档位越硬，单机越耐打。
      */
     private Enemy spawnEnemy() {
-        EnemyType type = randomType();
+        EnemyType type = randomType(difficulty);
         double size = (type == EnemyType.NORMAL) ? GameConfig.NORMAL_ENEMY_SIZE : GameConfig.ENEMY_SIZE;
         double x = random.nextDouble() * (GameConfig.WINDOW_WIDTH - size);
         double y = -size;
@@ -194,22 +194,37 @@ public class GameModelImpl implements GameModel {
     }
 
     /**
-     * 按当前关卡掷机型：第 1 关清一色普通敌机，
-     * 每升 1 关给横移/射击/自爆各加一份权重，高级机型出现得越来越频繁（F11）。
+     * 按当前关卡掷机型（普通档口径，供旧测试与不关心难度的调用方使用）：
+     * 第 1 关清一色普通敌机，每升 1 关给横移/射击/自爆各加一份权重（F11）。
      */
     private EnemyType randomType() {
+        return randomType(Difficulty.NORMAL);
+    }
+
+    /**
+     * 按当前关卡与难度掷机型：第 1 关清一色普通敌机，
+     * 每升 1 关给横移/射击/自爆各加一份权重，高级机型出现得越来越频繁（F11）。
+     *
+     * <p>三种高级机型的权重再各自乘本档的 {@link Difficulty#getTypeWeightMultiplier}：
+     * 困难档把射击机压到四成（高密度下"每 2 秒一发的敌弹"最容易变成弹幕墙），
+     * 横移与自爆机保持原样；简单/普通档三个倍率都是 1.0，权重与旧版逐位相同。</p>
+     */
+    private EnemyType randomType(Difficulty difficulty) {
         double advanced = Math.min(gameState.getLevel() - 1, GameConfig.MAX_ADVANCED_WEIGHT);
         double normalWeight = GameConfig.NORMAL_TYPE_WEIGHT;
-        double total = normalWeight + advanced * 3;
+        double movingWeight = advanced * difficulty.getTypeWeightMultiplier(EnemyType.MOVING);
+        double shootingWeight = advanced * difficulty.getTypeWeightMultiplier(EnemyType.SHOOTING);
+        double bomberWeight = advanced * difficulty.getTypeWeightMultiplier(EnemyType.BOMBER);
+        double total = normalWeight + movingWeight + shootingWeight + bomberWeight;
 
         double roll = random.nextDouble() * total;
         if (roll < normalWeight) {
             return EnemyType.NORMAL;
         }
-        if (roll < normalWeight + advanced) {
+        if (roll < normalWeight + movingWeight) {
             return EnemyType.MOVING;
         }
-        if (roll < normalWeight + advanced * 2) {
+        if (roll < normalWeight + movingWeight + shootingWeight) {
             return EnemyType.SHOOTING;
         }
         return EnemyType.BOMBER;

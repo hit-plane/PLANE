@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.util;
 
+import cn.edu.csu.plane.model.EnemyType;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -130,9 +131,61 @@ class DifficultyTest {
 
         // 第 1 关与后期（已贴到普通档下限的那一关）各看一眼具体数值
         assertEquals(0.70, GameConfig.itemDropRateAt(1, Difficulty.EASY), EPS, "简单档第 1 关 70%");
-        assertEquals(0.30, GameConfig.itemDropRateAt(1, Difficulty.HARD), EPS, "困难档第 1 关 30%");
+        assertEquals(0.40, GameConfig.itemDropRateAt(1, Difficulty.HARD), EPS, "困难档第 1 关 40%");
         assertEquals(0.21, GameConfig.itemDropRateAt(10, Difficulty.EASY), EPS, "简单档第 10 关 21%");
-        assertEquals(0.09, GameConfig.itemDropRateAt(10, Difficulty.HARD), EPS, "困难档第 10 关 9%");
+        assertEquals(0.12, GameConfig.itemDropRateAt(10, Difficulty.HARD), EPS, "困难档第 10 关 12%");
+    }
+
+    /** 困难档的补给要比普通档紧一点，但差距不能大：太抠会让难关雪上加霜。 */
+    @Test
+    void hardModeDropsMoreItemsThanBeforeButStillLessThanNormal() {
+        assertTrue(Difficulty.HARD.getItemDropRateMultiplier() < 1.0,
+                "困难档掉落倍率仍该小于普通档");
+        assertTrue(Difficulty.HARD.getItemDropRateMultiplier() > 0.6,
+                "困难档掉落倍率该比原来的 0.6 宽裕，实际 " + Difficulty.HARD.getItemDropRateMultiplier());
+
+        for (int level = 1; level <= MAX_LEVEL; level++) {
+            double normal = GameConfig.itemDropRateAt(level, Difficulty.NORMAL);
+            double hard = GameConfig.itemDropRateAt(level, Difficulty.HARD);
+            assertTrue(hard < normal, "第 " + level + " 关：困难档掉落仍该低于普通档：" + hard + " vs " + normal);
+            double gap = normal - hard;
+            assertTrue(gap <= 0.15 + EPS,
+                    "第 " + level + " 关：两档差距该保持在 15 个百分点以内，实际 " + gap);
+        }
+    }
+
+    /** 机型权重按机型分别配：困难档只压低"会开火的射击机"，其余机型保持基准。 */
+    @Test
+    void shooterWeightIsCutOnlyOnHard() {
+        assertTrue(Difficulty.HARD.getTypeWeightMultiplier(EnemyType.SHOOTING) < 1.0,
+                "困难档必须压低射击机权重，实际 "
+                        + Difficulty.HARD.getTypeWeightMultiplier(EnemyType.SHOOTING));
+        assertEquals(0.4, Difficulty.HARD.getTypeWeightMultiplier(EnemyType.SHOOTING), EPS,
+                "困难档射击机权重按配置压到四成");
+        assertTrue(Difficulty.HARD.getTypeWeightMultiplier(EnemyType.SHOOTING) > 0,
+                "射击机权重不能压到 0，否则困难档一架射击机都不出");
+
+        // 重新校准这一轮回调的部分：自爆机与横移机不再被特殊对待
+        for (EnemyType untouched : new EnemyType[]{EnemyType.BOMBER, EnemyType.MOVING}) {
+            assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(untouched), EPS,
+                    "困难档的 " + untouched + " 权重应保持普通档基准");
+        }
+    }
+
+    /** 简单与普通档一律 1.0；未单独配置的机型也退回本档默认倍率。 */
+    @Test
+    void typeWeightDefaultsToBaselineWhenUnconfigured() {
+        for (EnemyType type : new EnemyType[]{EnemyType.MOVING, EnemyType.SHOOTING, EnemyType.BOMBER}) {
+            assertEquals(1.0, Difficulty.EASY.getTypeWeightMultiplier(type), EPS,
+                    "简单档不该改 " + type + " 的刷新权重");
+            assertEquals(1.0, Difficulty.NORMAL.getTypeWeightMultiplier(type), EPS,
+                    "普通档是基准，必须为 1.0：" + type);
+        }
+
+        // 没配的机型走本档默认倍率；普通机没有机型倍率概念，直接按 1.0 处理
+        assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(EnemyType.NORMAL), EPS,
+                "普通机的权重由 spawn.normal.weight 决定，不用机型倍率");
+        assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(null), EPS, "null 按 1.0 处理");
     }
 
     /** 生成间隔：简单更稀疏、困难更密，但三档都不跌破共用的安全下限。 */

@@ -77,9 +77,10 @@ public final class GameConfig {
     public static final double PLAYER_SPEED = getDouble("player.speed", 360.0);
     /** 自动射击间隔（秒）：300ms（F03 + Q1）。 */
     public static final double PLAYER_FIRE_INTERVAL = getDouble("player.fire.interval", 0.3);
-    /** 火力强化（双发）的持续秒数（Q6）。 */
-    public static final double FIREPOWER_DURATION = getDouble("player.firepower.duration", 10.0);
-    /** 火力等级上限：火力几级就打几发子弹，5 级即五连发，再叠加无额外效果。 */
+    /**
+     * 火力等级上限：火力几级就打几发子弹，5 级即五连发，再叠加无额外效果。
+     * 火力强化没有时限，本局内永久生效，只有开新一局才回到 1 级。
+     */
     public static final int MAX_FIRE_POWER = getInt("player.firepower.max", 5);
 
     /**
@@ -250,7 +251,8 @@ public final class GameConfig {
      * {@link #ITEM_DROP_RATE_MIN} 下限），再整体乘难度倍率，最后封顶到 1.0。
      *
      * <p>倍率乘在一次算完的曲线值上（而不是只乘基础概率），所以下限也跟着走：
-     * 简单档后期仍有 21%，困难档后期只剩 9%——难度差异从中期一直保持到终局。</p>
+     * 简单档后期仍有 21%，困难档后期还剩 12%——难度差异从中期一直保持到终局，
+     * 但困难档始终严格低于普通档（50% → 40%、15% → 12%）。</p>
      */
     public static double itemDropRateAt(int level, Difficulty difficulty) {
         double rate = ITEM_DROP_RATE - Math.max(0, level - 1) * ITEM_DROP_RATE_STEP;

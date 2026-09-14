@@ -9,6 +9,9 @@ import java.util.List;
 /**
  * 玩家战机：血量、火力、射击节奏、无敌帧与护盾。
  * 位置由控制层的位移指令驱动（不是按速度自动前进），四边夹紧在战场内。
+ *
+ * <p>火力等级是"本局永久"的成长：吃到火力强化就 +1，本局内不会再随时间回落，
+ * 只有开新一局（{@link #reset}）或一局结束（{@link #clearPowerUps}）才回到 1 级。</p>
  */
 public class Player extends Entity {
 
@@ -21,8 +24,7 @@ public class Player extends Entity {
 
     private int health;
     private int maxHealth;
-    private int firePower;
-    private double firePowerTimer;    // 火力强化还剩几秒（Q6：10 秒后回落单发）
+    private int firePower;            // 火力等级：本局内只增不减，到上限为止
     private double fireRate;          // 两次开火的间隔（秒）
     private double fireCooldown;      // 距离下次能开火还剩多久
     private double invincibleTimer;
@@ -33,7 +35,6 @@ public class Player extends Entity {
         this.maxHealth = GameConfig.DEFAULT_HEALTH;
         this.health = maxHealth;
         this.firePower = 1;
-        this.firePowerTimer = 0;
         this.fireRate = GameConfig.PLAYER_FIRE_INTERVAL;
         this.fireCooldown = 0;
         this.invincibleTimer = 0;
@@ -45,13 +46,16 @@ public class Player extends Entity {
         moveTo(x, y);
         this.health = maxHealth;
         this.firePower = 1;
-        this.firePowerTimer = 0;
         this.fireCooldown = 0;
         this.invincibleTimer = 0;
         this.shielded = false;
         this.alive = true;
     }
 
+    /**
+     * 逐帧推进计时器。火力等级不在这里衰减：它是一个本局内的永久成长值，
+     * 只受道具影响（见 {@link #enhanceFirePower()}），不在帧循环里回落。
+     */
     @Override
     public void update(double deltaTime) {
         if (invincibleTimer > 0) {
@@ -59,14 +63,6 @@ public class Player extends Entity {
         }
         if (fireCooldown > 0) {
             fireCooldown -= deltaTime;
-        }
-        // 火力强化是有时限的，到点掉回单发（F10 / Q6）
-        if (firePowerTimer > 0) {
-            firePowerTimer -= deltaTime;
-            if (firePowerTimer <= 0) {
-                firePowerTimer = 0;
-                firePower = 1;
-            }
         }
     }
 
@@ -153,22 +149,20 @@ public class Player extends Entity {
     }
 
     /**
-     * 火力强化：升到上限后不再累加，避免出现既无效果又无限增长的等级。
-     * 同时把 10 秒时限重新计时——重复吃道具是刷新时间，不是叠加时长（Q6）。
+     * 火力强化：永久加一条弹道（本局内不衰减），升到上限后不再累加，
+     * 避免出现既无效果又无限增长的等级。
      */
     public void enhanceFirePower() {
         firePower = Math.min(firePower + 1, GameConfig.MAX_FIRE_POWER);
-        firePowerTimer = GameConfig.FIREPOWER_DURATION;
     }
 
     public void activateShield() {
         shielded = true;
     }
 
-    /** 清除所有临时效果（火力强化、护盾、无敌帧），一局结束时调用。 */
+    /** 清除本局积累的状态（火力等级、护盾、无敌帧），一局结束时调用。 */
     public void clearPowerUps() {
         firePower = 1;
-        firePowerTimer = 0;
         shielded = false;
         invincibleTimer = 0;
     }

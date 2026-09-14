@@ -766,4 +766,67 @@ class GameModelImplTest {
         model.setDifficulty(null);
         assertEquals(Difficulty.HARD, model.getDifficulty(), "null 不该覆盖已选难度");
     }
+
+    /**
+     * 掷机型时要按当前难度乘各机型的权重倍率：困难档射击机明显更少，其余机型权重保持不变。
+     *
+     * <p>注意"权重不变"不等于"占比不变"：权重是按关卡算完再一起归一化的，压掉射击机那一份，
+     * 总权重从 15 降到 12.6，其余机型的**占比**反而会抬起来（各自权重一点没动）。
+     * 所以这里对自爆/横移机断言的是"倍率没变"（用 {@link Difficulty#getTypeWeightMultiplier}
+     * 与"自爆/横移之比"来钉），而不是"架数相等"。</p>
+     */
+    @Test
+    void typeWeightsFollowDifficulty() throws Exception {
+        Method randomType = GameModelImpl.class.getDeclaredMethod("randomType", Difficulty.class);
+        randomType.setAccessible(true);
+
+        int level = 10;                                   // 高级机权重封顶，样本里各机型才够多
+        int samples = 20000;
+        int normalShooters = countType(randomType, level, Difficulty.NORMAL, samples, EnemyType.SHOOTING);
+        int easyShooters = countType(randomType, level, Difficulty.EASY, samples, EnemyType.SHOOTING);
+        int hardShooters = countType(randomType, level, Difficulty.HARD, samples, EnemyType.SHOOTING);
+
+        // 简单/普通档倍率同为 1.0，用同一种子掷点应当逐架一致
+        assertEquals(normalShooters, easyShooters,
+                "简单档不该改射击机权重：普通 " + normalShooters + " vs 简单 " + easyShooters);
+        assertTrue(hardShooters < normalShooters,
+                "困难档射击机该更少：困难 " + hardShooters + " vs 普通 " + normalShooters);
+
+        // 权重比 0.4、总权重由 15 降到 12.6 ⇒ 占比约为普通档的 0.4×15/12.6 ≈ 0.476
+        double ratio = hardShooters / (double) normalShooters;
+        assertTrue(ratio > 0.4 && ratio < 0.55,
+                "困难档射击机占比该约为普通档的 0.48，实际比值 " + ratio
+                        + "（困难 " + hardShooters + " / 普通 " + normalShooters + "）");
+
+        // 只动了射击机：困难档 自爆:横移 的张数比应与普通档相同（两者权重都是 1.0×）
+        int normalBombers = countType(randomType, level, Difficulty.NORMAL, samples, EnemyType.BOMBER);
+        int normalMovings = countType(randomType, level, Difficulty.NORMAL, samples, EnemyType.MOVING);
+        int hardBombers = countType(randomType, level, Difficulty.HARD, samples, EnemyType.BOMBER);
+        int hardMovings = countType(randomType, level, Difficulty.HARD, samples, EnemyType.MOVING);
+
+        double normalRatio = normalBombers / (double) normalMovings;
+        double hardRatio = hardBombers / (double) hardMovings;
+        assertEquals(normalRatio, hardRatio, 0.03,
+                "自爆/横移的相对权重不该被难度改动：普通 " + normalRatio + " vs 困难 " + hardRatio);
+
+        // 倍率层面同样钉一遍：困难档自爆与横移的倍率都是 1.0，只有射击机被压
+        assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(EnemyType.BOMBER), 0.001);
+        assertEquals(1.0, Difficulty.HARD.getTypeWeightMultiplier(EnemyType.MOVING), 0.001);
+    }
+
+    private static int countType(Method randomType, int level, Difficulty difficulty, int samples,
+                                 EnemyType type) throws Exception {
+        GameModelImpl target = new GameModelImpl(new Random(SEED));
+        target.setDifficulty(difficulty);
+        target.initGame();
+        target.addScore((level - 1) * GameConfig.SCORE_PER_LEVEL);   // 推到指定关卡
+
+        int count = 0;
+        for (int i = 0; i < samples; i++) {
+            if (randomType.invoke(target, difficulty) == type) {
+                count++;
+            }
+        }
+        return count;
+    }
 }
