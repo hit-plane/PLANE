@@ -36,4 +36,4 @@ build/
 .DS_Store
 
 ### 游戏运行时生成 ###
-highscore.txt
+highscore*.txt
