@@ -5,6 +5,7 @@ import cn.edu.csu.plane.model.Bullet;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameStatus;
+import cn.edu.csu.plane.model.HitEffect;
 import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.Player;
 import cn.edu.csu.plane.util.Difficulty;
@@ -252,6 +253,7 @@ class GameControllerTest {
         assertSame(model.getEnemies(), view.lastEnemies, "渲染的应是模型当前的敌机列表");
         assertSame(model.getBullets(), view.lastBullets, "渲染的应是模型当前的子弹列表");
         assertSame(model.getItems(), view.lastItems, "渲染的应是模型当前的道具列表");
+        assertSame(model.getHitEffects(), view.lastHitEffects, "渲染的应是模型当前的受击特效列表");
     }
 
     // ========== 5. 终局结算 ==========
@@ -423,6 +425,7 @@ class GameControllerTest {
         private final List<Bullet> bullets = new ArrayList<>();
         private final List<Item> items = new ArrayList<>();
         private final List<BombWave> waves = new ArrayList<>();
+        private final List<HitEffect> hitEffects = new ArrayList<>();
 
         private GameStatus status = GameStatus.MENU;
         private int score;
@@ -512,6 +515,11 @@ class GameControllerTest {
         }
 
         @Override
+        public List<HitEffect> getHitEffects() {
+            return hitEffects;
+        }
+
+        @Override
         public int getScore() {
             return score;
         }
@@ -574,16 +582,18 @@ class GameControllerTest {
         private List<Enemy> lastEnemies;
         private List<Bullet> lastBullets;
         private List<Item> lastItems;
+        private List<HitEffect> lastHitEffects;
 
         @Override
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                           List<BombWave> waves, int score, int level, int highScore, GameStatus status,
-                           Difficulty difficulty, double deltaTime) {
+                           List<BombWave> waves, List<HitEffect> hitEffects, int score, int level,
+                           int highScore, GameStatus status, Difficulty difficulty, double deltaTime) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
             lastBullets = bullets;
             lastItems = items;
+            lastHitEffects = hitEffects;
             lastRenderedDifficulty = difficulty;
         }
 
