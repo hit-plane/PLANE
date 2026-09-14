@@ -15,6 +15,7 @@ import javafx.scene.canvas.GraphicsContext;
 import javafx.scene.image.Image;
 import javafx.scene.paint.Color;
 import javafx.scene.text.Font;
+import javafx.scene.text.FontWeight;
 import javafx.scene.text.TextAlignment;
 
 import java.util.List;
@@ -46,6 +47,8 @@ public class GameView {
     // ---------- 旋转角度（度，顺时针） ----------
     private static final double ENEMY3_ROTATION = 90;   // 剑刃向下（俯冲机）
     private static final double BULLET4_ROTATION = 90;  // 敌弹竖版
+    /** 关卡过渡动画时长（秒）。 */
+    private static final double LEVEL_TRANSITION_DURATION = 1.5;
 
     private final Canvas canvas;
     private final GraphicsContext gc;
@@ -75,6 +78,11 @@ public class GameView {
     private Image playerBulletImage;
 
     private GameOverHandler gameOverHandler;
+
+    // 关卡过渡动画状态
+    private int lastLevel = -1;
+    private double levelTransitionTimer = 0;
+    private int transitionLevel = 0;
 
     public GameView() {
         this.canvas = new Canvas(GameConfig.WINDOW_WIDTH, GameConfig.WINDOW_HEIGHT);
@@ -122,6 +130,13 @@ public class GameView {
     /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → HUD。 */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
                        int score, int level, int highScore, GameStatus status, double deltaTime) {
+        // 检测关卡变化（升级或重开新局），触发过渡动画
+        if (lastLevel != -1 && level != lastLevel) {
+            transitionLevel = level;
+            levelTransitionTimer = LEVEL_TRANSITION_DURATION;
+        }
+        lastLevel = level;
+
         updateBackground(deltaTime);
         drawBackground();
         drawItems(items);
@@ -129,6 +144,15 @@ public class GameView {
         drawBullets(bullets);
         drawPlayer(player);
         hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower());
+
+        // 关卡过渡动画（覆盖在最上层）
+        if (levelTransitionTimer > 0) {
+            drawLevelTransition();
+            levelTransitionTimer -= deltaTime;
+            if (levelTransitionTimer < 0) {
+                levelTransitionTimer = 0;
+            }
+        }
     }
 
     /** 一局结束：把终局状态与本局得分抛给装配层，由其弹出结算面板。 */
@@ -262,6 +286,40 @@ public class GameView {
             return;
         }
         gc.drawImage(img, cx - img.getWidth() / 2, cy - img.getHeight() / 2);
+    }
+
+    /** 关卡过渡动画：屏幕中央淡入淡出显示"第 X 关"。 */
+    private void drawLevelTransition() {
+        double elapsed = LEVEL_TRANSITION_DURATION - levelTransitionTimer;
+        double fade = 0.35;   // 淡入淡出各 0.35 秒
+        double alpha;
+        if (elapsed < fade) {
+            alpha = elapsed / fade;
+        } else if (elapsed > LEVEL_TRANSITION_DURATION - fade) {
+            alpha = (LEVEL_TRANSITION_DURATION - elapsed) / fade;
+        } else {
+            alpha = 1.0;
+        }
+        alpha = Math.max(0, Math.min(1, alpha));
+
+        double w = GameConfig.WINDOW_WIDTH;
+        double h = GameConfig.WINDOW_HEIGHT;
+
+        gc.save();
+        gc.setGlobalAlpha(alpha);
+
+        // 半透明背景条
+        gc.setFill(Color.rgb(0, 0, 0, 0.55));
+        gc.fillRect(0, h / 2 - 60, w, 120);
+
+        // 大字
+        gc.setFill(Color.WHITE);
+        gc.setFont(Font.font("SansSerif", FontWeight.BOLD, 52));
+        gc.setTextAlign(TextAlignment.CENTER);
+        gc.setTextBaseline(VPos.CENTER);
+        gc.fillText("第 " + transitionLevel + " 关", w / 2, h / 2);
+
+        gc.restore();
     }
 
     /** 道具贴图：火力强化、炸弹、回血、护盾各有专属图片。 */
