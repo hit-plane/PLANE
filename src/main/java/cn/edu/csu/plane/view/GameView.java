@@ -84,7 +84,7 @@ public class GameView {
     private GameOverHandler gameOverHandler;
 
     // 关卡过渡动画状态
-    private int lastLevel = -1;
+    private int lastLevel = 0;   // 关卡最小为 1，初始 0 保证第一次开局也弹"第 1 关"
     private double levelTransitionTimer = 0;
     private int transitionLevel = 0;
 
