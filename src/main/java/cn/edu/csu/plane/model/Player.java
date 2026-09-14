@@ -125,12 +125,13 @@ public class Player extends Entity {
 
     /**
      * 受击结算，优先级链：护盾 → 无敌帧 → 扣血。
-     * 有盾则消耗盾且不进入无敌（盾是独立的一次资源）；无敌期间伤害被完全忽略且
-     * 不刷新计时（1 秒是硬上限，不能靠连续受击延长）。
+     * 有盾则消耗盾，并进入与受击相同的无敌时长（盾破后不会紧接着再吃一发）；
+     * 无敌期间伤害被完全忽略且不刷新计时（时长是硬上限，不能靠连续受击延长）。
      */
     public void takeDamage(int damage) {
         if (shielded) {
             shielded = false;
+            invincibleTimer = GameConfig.PLAYER_INVINCIBLE_TIME;   // 盾破后同样进入无敌
             return;
         }
 

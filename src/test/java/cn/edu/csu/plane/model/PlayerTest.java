@@ -155,7 +155,16 @@ class PlayerTest {
         player.activateShield();
         player.takeDamage(1);
         assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
-        player.takeDamage(1); // 盾已消耗
+        assertFalse(player.isShielded(), "盾已消耗");
+        assertTrue(player.isInvincible(), "盾破后进入无敌");
+
+        // 无敌期间再受击仍不掉血
+        player.takeDamage(1);
+        assertEquals(GameConfig.DEFAULT_HEALTH, player.getHealth());
+
+        // 无敌结束后再受击才正常扣血
+        player.update(GameConfig.PLAYER_INVINCIBLE_TIME + 0.1);
+        player.takeDamage(1);
         assertEquals(GameConfig.DEFAULT_HEALTH - 1, player.getHealth());
     }
 
