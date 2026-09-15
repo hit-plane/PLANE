@@ -44,6 +44,9 @@ public class PlaneApp extends Application {
     private static final double SCREEN_MARGIN_W = 24;
     private static final double SCREEN_MARGIN_H = 64;
 
+    /** 窗口标题主名。主菜单只用它；一局中（含暂停、结算）另拼上当前难度。 */
+    private static final String TITLE = "飞机大战";
+
     /**
      * 隐藏难度「折磨」的解锁暗号：在主菜单依次敲 k-s-k-b-l 即出现第四档难度。
      *
@@ -90,6 +93,14 @@ public class PlaneApp extends Application {
         double initialScale = initialScale();
         Scene scene = new Scene(root, LOGICAL_W * initialScale, LOGICAL_H * initialScale);
 
+        // 窗口标题：**主菜单只显示游戏名**（难度已由难度按钮的高亮表示，再写进标题是重复）；
+        // **一局中（含暂停、结算）带上当前难度**——战斗信息带按要求不再显示难度，
+        // 标题是局内唯一的难度提示，不写玩家就不知道自己打的是哪一档。
+        // 状态每次变化后都要重算，故收成一个 Runnable，在下列各处调用。
+        Runnable refreshTitle = () -> stage.setTitle(model.getStatus() == GameStatus.MENU
+                ? TITLE
+                : TITLE + " - " + model.getDifficulty().getLabel());
+
         // 必须让 controller 绑定它自己持有的输入实例：InputHandler 的按键状态是实例字段。
         controller.attachInput(scene);
         // 暂停键（Esc）：用 addEventHandler 追加，避免顶掉 InputHandler 装的移动键监听。
@@ -98,6 +109,7 @@ public class PlaneApp extends Application {
                 controller.togglePause();
                 // 暂停后显示暂停面板，恢复后隐藏
                 pauseView.getNode().setVisible(model.getStatus() == GameStatus.PAUSED);
+                refreshTitle.run();
             }
         });
         stage.focusedProperty().addListener((observable, wasFocused, isFocused) -> {
@@ -110,6 +122,7 @@ public class PlaneApp extends Application {
                     pauseView.getNode().setVisible(true);
                 }
             }
+            refreshTitle.run();
         });
 
         // 窗口尺寸一变就重算缩放，保证逻辑内容始终等比、居中、完整可见。
@@ -130,9 +143,9 @@ public class PlaneApp extends Application {
         pauseView.setOnResume(() -> {
             pauseView.getNode().setVisible(false);
             controller.resume();
+            refreshTitle.run();
         });
         // 最快通关记录按难度分档：每次回到菜单都按当前所选档位显示，切换难度也跟着刷新。
-        // 难度只在菜单里用高亮表示，窗口标题不带档位名。
         Runnable refreshMenuRecord =
                 () -> menuView.setClearRecord(model.getBestClearTime(menuView.getSelectedDifficulty()));
 
@@ -142,12 +155,14 @@ public class PlaneApp extends Application {
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
+            refreshTitle.run();   // 回到菜单 → 标题去掉难度
         });
 
         // 一局结束：弹出结算面板（含本局用时与"是否刷新纪录"）
         gameView.setGameOverHandler((status, score, difficulty, runClearTime, newClearRecord) -> {
             gameOverView.show(status, score, difficulty, runClearTime, newClearRecord);
             gameOverView.getNode().setVisible(true);
+            refreshTitle.run();   // 结算不是主菜单，标题仍带难度
         });
 
         // 主菜单：按所选皮肤与难度开始游戏。难度要在 start() 之前写进模型，
@@ -168,6 +183,7 @@ public class PlaneApp extends Application {
             gameOverView.getNode().setVisible(false);
             pauseView.getNode().setVisible(false);
             controller.start();
+            refreshTitle.run();   // 开局 → 标题带上本局难度
         });
 
         // 暗号监听只在菜单态生效：开局时摘掉（见上面的 setOnStart），回到菜单再挂上。
@@ -183,6 +199,7 @@ public class PlaneApp extends Application {
         gameOverView.setOnRestart(() -> {
             gameOverView.getNode().setVisible(false);
             controller.restart();
+            refreshTitle.run();   // 重开仍是同一档，标题保持带难度
         });
         gameOverView.setOnMenu(() -> {
             gameOverView.getNode().setVisible(false);
@@ -190,13 +207,14 @@ public class PlaneApp extends Application {
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
+            refreshTitle.run();   // 回到菜单 → 标题去掉难度
         });
 
         // 初始状态：只显示主菜单
         gameOverView.getNode().setVisible(false);
         pauseView.getNode().setVisible(false);
 
-        stage.setTitle("飞机大战");
+        refreshTitle.run();   // 初始是主菜单 → 标题只有游戏名
         stage.setScene(scene);
         stage.setMinWidth(LOGICAL_W * 0.4);
         stage.setMinHeight(LOGICAL_H * 0.4);
