@@ -32,10 +32,11 @@ import java.util.function.Consumer;
  * <p>难度默认选中普通档——与旧版手感一致的那一档。切换难度只是告诉装配层，
  * 由它去刷新最快通关记录显示（记录按难度分档），菜单自己不碰模型。</p>
  *
- * <p><b>隐藏档</b>：{@link Difficulty#TORMENT} 的按钮一开始是隐藏的（用 {@code visible=false}
- * 占住位置，所以另外三档的位置和布局不会因为解锁而跳动），只有装配层在检测到暗号后
- * 调用 {@link #unlockTorment()} 才显示并自动选中它；同时弹出一行提示，让玩家明白
- * 现在选中的不是常规难度，不至于误以为默认难度变了。</p>
+ * <p><b>隐藏档</b>：{@link Difficulty#TORMENT} 的按钮一开始既不显示也不占位
+ * （{@code visible=false} + {@code managed=false}），所以常规三档的按钮组是居中在窗口上的；
+ * 装配层检测到暗号后调用 {@link #unlockTorment()}，它才恢复占位、按钮组以四档重新居中，
+ * 并自动选中它；同时弹出一行提示，让玩家明白现在选中的不是常规难度，
+ * 不至于误以为默认难度变了。</p>
  */
 public class MainMenuView {
 
@@ -145,7 +146,7 @@ public class MainMenuView {
         bulletRow.getChildren().addAll(bulletButtons);
         bulletRow.setAlignment(Pos.CENTER);
 
-        // 难度按钮行：文字按钮，选中项与皮肤一样用蓝框高亮；隐藏档先不显示但占位
+        // 难度按钮行：文字按钮，选中项与皮肤一样用蓝框高亮；隐藏档先不显示也不占位
         for (int i = 0; i < difficultyButtons.length; i++) {
             Difficulty difficulty = DIFFICULTIES[i];
             Button button = new Button(difficulty.getLabel());
@@ -155,16 +156,17 @@ public class MainMenuView {
             int idx = i;
             button.setOnAction(e -> selectDifficulty(idx));
             if (!difficulty.isSelectableInMenu()) {
-                // 隐藏而不是禁用：常规三档的布局位置保持稳定，解锁时不会整行跳动
+                // 隐藏档同时摘掉布局占位（managed），按钮组才会因为"跟着少一个"而居中；
+                // 若只 setVisible(false)，那一个空位仍占着宽度，三种可见按钮会整体偏左。
+                // 代价是解锁时这一行会重新居中一次（可接受）。
                 button.setVisible(false);
+                button.setManaged(false);
             }
             difficultyButtons[i] = button;
         }
 
-        Label difficultyLabel = new Label("难度");
-        difficultyLabel.setTextFill(Color.WHITE);
+        // 难度按钮行：不带左侧标题，按钮组自身居中
         HBox difficultyRow = new HBox(10);
-        difficultyRow.getChildren().add(difficultyLabel);
         difficultyRow.getChildren().addAll(difficultyButtons);
         difficultyRow.setAlignment(Pos.CENTER);
 
@@ -278,6 +280,7 @@ public class MainMenuView {
             return;
         }
         difficultyButtons[TORMENT_INDEX].setVisible(true);
+        difficultyButtons[TORMENT_INDEX].setManaged(true);   // 恢复占位，四档按钮组重新居中
         tormentHint.setVisible(true);
         cheatButton.setVisible(true);
         selectDifficulty(TORMENT_INDEX);
