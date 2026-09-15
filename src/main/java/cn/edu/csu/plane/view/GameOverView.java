@@ -30,6 +30,7 @@ public class GameOverView {
 
     public GameOverView() {
         root.setStyle("-fx-background-color: rgba(0,0,0,0.72);");
+        SoundPlayer.attachMenuClickSound(root);
 
         resultLabel.setFont(Font.font("SansSerif", 40));
         scoreLabel.setTextFill(Color.WHITE);

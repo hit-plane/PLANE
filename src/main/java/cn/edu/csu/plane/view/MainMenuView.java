@@ -104,6 +104,7 @@ public class MainMenuView {
 
     public MainMenuView() {
         root.setStyle("-fx-background-color: rgb(12,16,30);");
+        SoundPlayer.attachMenuClickSound(root);
 
         Label title = new Label("飞机大战");
         title.setTextFill(Color.WHITE);

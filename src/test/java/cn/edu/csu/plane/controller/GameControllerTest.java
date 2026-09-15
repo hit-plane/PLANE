@@ -9,6 +9,7 @@ import cn.edu.csu.plane.model.GameStatus;
 import cn.edu.csu.plane.model.HitEffect;
 import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.Player;
+import cn.edu.csu.plane.model.SoundEvent;
 import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameView;
@@ -566,6 +567,15 @@ class GameControllerTest {
         @Override
         public List<HitEffect> getHitEffects() {
             return hitEffects;
+        }
+
+        /**
+         * 假模型不发任何音效事件：控制层每帧都会来取一次（见 {@code GameController#render}），
+         * 这里返回空表即可，测试也就不必碰音频。
+         */
+        @Override
+        public List<SoundEvent> consumeSoundEvents() {
+            return List.of();
         }
 
         @Override

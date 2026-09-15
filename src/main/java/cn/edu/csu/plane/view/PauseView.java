@@ -22,6 +22,7 @@ public class PauseView {
     public PauseView() {
         root.setStyle("-fx-background-color: rgba(0,0,0,0.6);");
         root.setVisible(false);
+        SoundPlayer.attachMenuClickSound(root);
 
         Label pauseLabel = new Label("暂停");
         pauseLabel.setTextFill(Color.WHITE);

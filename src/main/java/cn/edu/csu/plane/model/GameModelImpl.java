@@ -33,6 +33,12 @@ public class GameModelImpl implements GameModel {
     private final List<Item> items = new ArrayList<>();
     private final List<BombWave> waves = new ArrayList<>();
     private final List<HitEffect> hitEffects = new ArrayList<>();
+    /**
+     * 本帧攒下的音效事件（F14），由控制层每帧用 {@link #consumeSoundEvents()} 取走。
+     * 与 {@link #hitEffects} 同一路数：模型只记录"发生了什么"，放不放得出声是 View 层的事，
+     * 因此 model 包依旧零 javafx 依赖。
+     */
+    private final List<SoundEvent> soundEvents = new ArrayList<>();
     private final Random random;
     private final HighScoreStore highScoreStore;
     /** 通关最短用时存档（F24）：与最高分一样按难度分档。 */
@@ -100,6 +106,7 @@ public class GameModelImpl implements GameModel {
         items.clear();
         waves.clear();
         hitEffects.clear();
+        soundEvents.clear();
         spawnTimer = 0;
         newClearRecord = false;
     }
@@ -143,9 +150,13 @@ public class GameModelImpl implements GameModel {
     /**
      * 一局结束：冻结状态，清除玩家临时效果与场上道具，并把本局成绩刷进最高分存档（F09 / F13）。
      * 成绩按难度分档存（F16）：写的是当前档位那一份，不会盖掉别的档。
+     * 顺带记一声终局音效（F14）——通关与阵亡各一个素材。
      */
     private void finishGame(GameStatus status) {
         gameState.setStatus(status);
+        // 终局音效（F14）：这是本局最后一声，队列随后会被控制层取走；
+        // 不能在这里清 soundEvents，否则同帧的受击音与这一声都会被吞掉
+        soundEvents.add(status == GameStatus.VICTORY ? SoundEvent.VICTORY : SoundEvent.DEFEAT);
         // 清除火力强化等临时效果，避免结算界面仍显示多发子弹
         player.clearPowerUps();
         // 清除场上残留道具与冲击波，避免结算画面仍显示飞行中的东西
@@ -197,6 +208,7 @@ public class GameModelImpl implements GameModel {
         items.clear();
         waves.clear();
         hitEffects.clear();
+        soundEvents.clear();
         spawnTimer = 0;
         newClearRecord = false;
         gameState.setStatus(GameStatus.MENU);
@@ -327,6 +339,9 @@ public class GameModelImpl implements GameModel {
     /**
      * 玩家子弹命中敌机：敌机扣血、子弹销毁，击毁则计分并按概率掉落道具（F06/F08/F10）。
      * 一发子弹只结算一架敌机（命中即 break），保证计分账目与 E06 的"子弹销毁"语义一一对应。
+     *
+     * <p>音效（F14）在这一下里<b>二选一</b>：打死了发击毁、没打死发命中。两个事件的素材目前是
+     * 同一份音频，若两个都发就会同帧叠成双倍音量。</p>
      */
     private void checkBulletEnemy() {
         for (Bullet bullet : bullets) {
@@ -350,8 +365,11 @@ public class GameModelImpl implements GameModel {
                             enemy.getX() + enemy.getWidth() / 2,
                             enemy.getY() + enemy.getHeight() / 2,
                             HitEffect.Type.ENEMY_EXPLODE, EXPLODE_EFFECT_DURATION));
+                    sound(SoundEvent.ENEMY_DESTROYED);
                     addScore(enemy.getScore());
                     dropItem(enemy);
+                } else {
+                    sound(SoundEvent.ENEMY_HIT);
                 }
                 break;   // 一发子弹只结算一架敌机
             }
@@ -370,13 +388,20 @@ public class GameModelImpl implements GameModel {
             if (isColliding(bullet, player)) {
                 bullet.setAlive(false);
                 int hpBefore = player.getHealth();
+                // 有盾必然被这一下吃掉（Player#takeDamage 的优先级是护盾 → 无敌帧 → 扣血），
+                // 所以先读一眼，好在三种结果里选对音效（F14）
+                boolean blockedByShield = player.isShielded();
                 player.takeDamage(bullet.getDamage());
-                if (player.getHealth() < hpBefore) {
+                if (blockedByShield) {
+                    sound(SoundEvent.SHIELD_BLOCK);
+                } else if (player.getHealth() < hpBefore) {
+                    sound(SoundEvent.PLAYER_HIT);
                     hitEffects.add(new HitEffect(
                             player.getX() + player.getWidth() / 2,
                             player.getY() + player.getHeight() / 2,
                             HitEffect.Type.PLAYER_HIT, PLAYER_HIT_EFFECT_DURATION));
                 }
+                // 无敌帧内被忽略：血没掉、盾没破，一声不响
             }
         }
     }
@@ -392,8 +417,12 @@ public class GameModelImpl implements GameModel {
             }
             enemy.setAlive(false);
             int hpBefore = player.getHealth();
+            boolean blockedByShield = player.isShielded();
             player.takeDamage(enemy.getCollisionDamage());
-            if (player.getHealth() < hpBefore) {
+            if (blockedByShield) {
+                sound(SoundEvent.SHIELD_BLOCK);
+            } else if (player.getHealth() < hpBefore) {
+                sound(SoundEvent.PLAYER_CRASH);
                 hitEffects.add(new HitEffect(
                         player.getX() + player.getWidth() / 2,
                         player.getY() + player.getHeight() / 2,
@@ -417,6 +446,7 @@ public class GameModelImpl implements GameModel {
                 continue;
             }
             item.setAlive(false);
+            sound(SoundEvent.ITEM_PICKUP);
             applyItem(item.getType());
         }
     }
@@ -451,7 +481,12 @@ public class GameModelImpl implements GameModel {
             case FIREPOWER -> player.enhanceFirePower();
             case HEAL -> player.heal(GameConfig.HEAL_AMOUNT);
             case SHIELD -> player.activateShield();
-            case BOMB -> waves.add(new BombWave());
+            case BOMB -> {
+                waves.add(new BombWave());
+                // 拾取音在 checkPlayerItem 里已经发过，这一声是"炸弹生效"（F14）；
+                // 冲击波要下一帧才扫到敌机，所以两声天然错开，不会糊在一起
+                sound(SoundEvent.BOMB);
+            }
             default -> throw new IllegalStateException("未处理的道具类型: " + type);
         }
     }
@@ -487,6 +522,11 @@ public class GameModelImpl implements GameModel {
         }
     }
 
+    /** 记一声待播的音效（F14）；放不放得出声由 View 层看着办。 */
+    private void sound(SoundEvent event) {
+        soundEvents.add(event);
+    }
+
     /** AABB 相交判定：四类碰撞共用一条判据。 */
     boolean isColliding(Entity a, Entity b) {
         return a.getX() < b.getX() + b.getWidth() &&
@@ -520,6 +560,17 @@ public class GameModelImpl implements GameModel {
 
     @Override
     public List<HitEffect> getHitEffects() { return hitEffects; }
+
+    /** 取走并清空攒下的音效事件（F14）：控制层每帧调一次，拿到的是一次性快照。 */
+    @Override
+    public List<SoundEvent> consumeSoundEvents() {
+        if (soundEvents.isEmpty()) {
+            return List.of();
+        }
+        List<SoundEvent> drained = List.copyOf(soundEvents);
+        soundEvents.clear();
+        return drained;
+    }
 
     @Override
     public int getScore() { return (int) gameState.getScore(); }
@@ -601,8 +652,19 @@ public class GameModelImpl implements GameModel {
     @Override
     public double getElapsedTime() { return gameState.getElapsedTime(); }
 
+    /**
+     * 累加得分，并在关卡真的涨了的时候补一声升关音（F14）。
+     *
+     * <p>音效埋在这里而不是让界面去比对本帧关卡与上一帧关卡：重开一局时关卡会从 10 掉回 1，
+     * 那也是一次"变化"，按前后比对会把开局误判成升关。这里只认<b>涨</b>。
+     * 一次大额加分（炸弹清屏）可能连跳两级（{@code GameState#addScore} 用 while），仍只响一声。</p>
+     */
     @Override
     public void addScore(int amount) {
+        int levelBefore = gameState.getLevel();
         gameState.addScore(amount);
+        if (gameState.getLevel() > levelBefore) {
+            sound(SoundEvent.LEVEL_UP);
+        }
     }
 }

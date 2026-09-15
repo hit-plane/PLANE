@@ -10,6 +10,7 @@ import cn.edu.csu.plane.model.HitEffect;
 import cn.edu.csu.plane.model.Item;
 import cn.edu.csu.plane.model.ItemType;
 import cn.edu.csu.plane.model.Player;
+import cn.edu.csu.plane.model.SoundEvent;
 import cn.edu.csu.plane.util.AssetLoader;
 import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
@@ -171,6 +172,17 @@ public class GameView {
                 levelTransitionTimer = 0;
             }
         }
+    }
+
+    /**
+     * 播放模型这一帧攒下的音效事件（F14）。
+     *
+     * <p>由控制层每帧把 {@code GameModel.consumeSoundEvents()} 的结果交过来，
+     * 本类只负责转手给 {@link SoundPlayer}——素材怎么对应、静音与否都在那边。
+     * 视图是音频模块的出口，模型与控制器都不必知道素材与播放 API 的存在。</p>
+     */
+    public void playSounds(List<SoundEvent> soundEvents) {
+        SoundPlayer.playAll(soundEvents);
     }
 
     /**

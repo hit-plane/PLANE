@@ -46,6 +46,15 @@ public interface GameModel {
     /** 返回场上正在播放的受击特效列表（供视图渲染）。 */
     List<HitEffect> getHitEffects();
 
+    /**
+     * 取走并清空从上次调用以来攒下的音效事件（F14），供视图层播放。
+     *
+     * <p>与 {@link #getHitEffects()} 同一路数——模型只攒"这一帧发生了什么"，
+     * 播放素材是 View 层的事，模型一层完全不碰音频 API（{@link SoundEvent} 也不含文件名）。
+     * 语义是"取走"而不是"只读"：调用一次后队列就空了，所以控制层每帧只该调一次。</p>
+     */
+    List<SoundEvent> consumeSoundEvents();
+
     /** 返回当前得分。 */
     int getScore();
 

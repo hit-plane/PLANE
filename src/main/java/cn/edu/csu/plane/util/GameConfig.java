@@ -426,6 +426,19 @@ public final class GameConfig {
     /** 背景纵向循环滚动速度（像素/秒），模拟飞机向前飞行。 */
     public static final double BACKGROUND_SCROLL_SPEED = getDouble("background.scroll.speed", 40.0);
 
+    // ---------- 音效（F14） ----------
+    /**
+     * 音效总开关：关掉后一个音都不放，游戏其余部分完全不受影响。
+     *
+     * <p>这里只读配置文件；单元测试另外还有一个系统属性开关
+     * （{@code -Dsound.disabled=true}，见 pom 的 surefire 配置），
+     * 两者是"与"的关系——测试期一律静音，不必去改这份给玩家看的配置。</p>
+     */
+    public static final boolean SOUND_ENABLED = getBoolean("sound.enabled", true);
+
+    /** 全局音量，取值 0.0～1.0；越界不报错，播放时夹紧。 */
+    public static final double SOUND_VOLUME = getDouble("sound.volume", 0.7);
+
     private GameConfig() {
     }
 
@@ -441,6 +454,27 @@ public final class GameConfig {
             System.err.println("读 " + CONFIG_PATH + " 出错，全部用默认值：" + e.getMessage());
         }
         return props;
+    }
+
+    /**
+     * 读一个开关配置项：只认 true / false（大小写不敏感），读到别的字样就告警并退回默认值。
+     * 故意不用 {@code Boolean.parseBoolean}——那样任何拼错的字样（如 "ture"）都会被静默当成 false，
+     * 与"某项写错就退回默认值"的容错口径不符。
+     */
+    private static boolean getBoolean(String key, boolean fallback) {
+        String raw = PROPS.getProperty(key);
+        if (raw == null) {
+            return fallback;
+        }
+        String value = raw.trim();
+        if (value.equalsIgnoreCase("true")) {
+            return true;
+        }
+        if (value.equalsIgnoreCase("false")) {
+            return false;
+        }
+        System.err.println("配置项 " + key + " 的值 '" + raw + "' 不是 true/false，改用默认值 " + fallback);
+        return fallback;
     }
 
     private static int getInt(String key, int fallback) {

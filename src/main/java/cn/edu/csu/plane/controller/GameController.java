@@ -143,11 +143,18 @@ public class GameController {
         stop();
     }
 
-    /** 每帧渲染画面：把渲染所需的本局数据（含关卡进度与本局用时）一并交给视图。 */
+    /**
+     * 每帧渲染画面：把渲染所需的本局数据（含关卡进度与本局用时）一并交给视图，
+     * 再把模型这一帧攒下的音效事件（F14）转交给视图去播。
+     *
+     * <p>音效单独一次调用而不是塞进 {@link GameView#render} 的参数表：渲染是纯绘制，
+     * 放声是有副作用的动作，而且事件是"取走即清空"的一次性快照，语义上不属于画面数据。</p>
+     */
     public void render() {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems(),
                 model.getWaves(), model.getHitEffects(), model.getLevel(), model.getLevelProgress(),
                 model.getStatus(), model.getElapsedTime(), lastDelta);
+        view.playSounds(model.consumeSoundEvents());
     }
 
     /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */
