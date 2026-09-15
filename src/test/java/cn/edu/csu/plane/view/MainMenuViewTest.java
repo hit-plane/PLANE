@@ -2,8 +2,14 @@ package cn.edu.csu.plane.view;
 
 import cn.edu.csu.plane.util.Difficulty;
 import javafx.application.Platform;
+import javafx.event.Event;
+import javafx.event.EventType;
 import javafx.scene.Node;
 import javafx.scene.control.Button;
+import javafx.scene.input.MouseButton;
+import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -139,7 +145,7 @@ class MainMenuViewTest {
         });
         assertTrue(cheatButtonOf(menu).isVisible(), "解锁后作弊开关该出现");
         assertFalse(menu.isCheatEnabled(), "解锁只是提供入口，不该自动开启作弊");
-        assertEquals("作弊：未开启", cheatButtonOf(menu).getText());
+        assertEquals("可滥权", cheatButtonOf(menu).getText(), "未开启时按钮写的是当前状态");
 
         onFxThread(() -> {
             cheatButtonOf(menu).fire();
@@ -147,7 +153,7 @@ class MainMenuViewTest {
         });
         assertTrue(menu.isCheatEnabled(), "按一下该打开");
         assertEquals(Boolean.TRUE, notified.get(), "状态变化该通知装配层写进模型");
-        assertEquals("作弊：已开启", cheatButtonOf(menu).getText(), "按钮文字要能看出当前状态");
+        assertEquals("滥权中", cheatButtonOf(menu).getText(), "按钮文字要能看出当前状态");
 
         onFxThread(() -> {
             cheatButtonOf(menu).fire();
@@ -155,6 +161,111 @@ class MainMenuViewTest {
         });
         assertFalse(menu.isCheatEnabled(), "再按一下该关掉");
         assertEquals(Boolean.FALSE, notified.get());
+    }
+
+    /**
+     * 左下角的音效按钮：显示的必须是<b>当前状态</b>（音效开 / 音效关）而不是动作，
+     * 按一下切换 {@link SoundPlayer} 的玩家开关并改回状态文案。
+     */
+    @Test
+    void soundButtonShowsStateAndToggles() {
+        boolean before = SoundPlayer.isPlayerEnabled();
+        try {
+            onFxThread(() -> {
+                SoundPlayer.setPlayerEnabled(true);
+                return null;
+            });
+            MainMenuView menu = onFxThread(MainMenuView::new);
+            assertEquals("音效开", soundButtonOf(menu).getText(), "开着时按钮写'音效开'");
+
+            onFxThread(() -> {
+                soundButtonOf(menu).fire();
+                return null;
+            });
+            assertFalse(SoundPlayer.isPlayerEnabled(), "按一下该静音");
+            assertEquals("音效关", soundButtonOf(menu).getText(), "关掉后按钮改写成'音效关'");
+
+            onFxThread(() -> {
+                soundButtonOf(menu).fire();
+                return null;
+            });
+            assertTrue(SoundPlayer.isPlayerEnabled(), "再按一下恢复出声");
+            assertEquals("音效开", soundButtonOf(menu).getText());
+        } finally {
+            // 静态开关是全局的，测完还原，免得污染同一 JVM 里的其它用例
+            onFxThread(() -> {
+                SoundPlayer.setPlayerEnabled(before);
+                return null;
+            });
+        }
+    }
+
+    /**
+     * 两个角按钮必须压在中间那一列内容<b>之上</b>。
+     *
+     * <p>回归防线：那一列内容（VBox）被 StackPane 拉伸铺满整个根、命中测试按整块矩形走，
+     * 若角按钮排在它前面，角上的点击会被它先接走——现象就是"按钮按了没反应"。
+     * 这里断言的是场景图里的先后顺序，也就是命中测试的优先级。</p>
+     */
+    @Test
+    void cornerButtonsSitAboveMenuContent() {
+        MainMenuView menu = onFxThread(MainMenuView::new);
+        onFxThread(() -> {
+            StackPane root = (StackPane) menu.getNode();
+            int content = -1;
+            for (int i = 0; i < root.getChildren().size(); i++) {
+                if (root.getChildren().get(i) instanceof VBox) {
+                    content = i;
+                }
+            }
+            assertTrue(content >= 0, "前置条件：根里应有中间那一列内容");
+            assertTrue(root.getChildren().indexOf(soundButtonOf(menu)) > content,
+                    "音效按钮必须排在内容层之后，否则角上的点击会被内容层吞掉");
+            assertTrue(root.getChildren().indexOf(cheatButtonOf(menu)) > content,
+                    "滥权按钮必须排在内容层之后");
+            return null;
+        });
+    }
+
+    /** 悬停时套一层描边；离开后要还原成该按钮<b>当前状态</b>的样式（滥权开着时是红的，不能被冲掉）。 */
+    @Test
+    void cornerButtonsShowHoverBorderAndRestoreState() {
+        MainMenuView menu = onFxThread(MainMenuView::new);
+        onFxThread(() -> {
+            Button sound = soundButtonOf(menu);
+            String base = sound.getStyle();
+            Event.fireEvent(sound, mouseEvent(MouseEvent.MOUSE_ENTERED));
+            assertNotEquals(base, sound.getStyle(), "悬停该换一套样式");
+            assertTrue(sound.getStyle().contains("#00bfff"), "悬停应出现描边（蓝色）");
+            Event.fireEvent(sound, mouseEvent(MouseEvent.MOUSE_EXITED));
+            assertEquals(base, sound.getStyle(), "离开后应还原原样式");
+
+            menu.setCheatEnabled(true);
+            Button abuse = cheatButtonOf(menu);
+            String onStyle = abuse.getStyle();
+            assertTrue(onStyle.contains("#ff5252"), "前置条件：开启时是红色描边");
+            Event.fireEvent(abuse, mouseEvent(MouseEvent.MOUSE_ENTERED));
+            assertTrue(abuse.getStyle().contains("#00bfff"), "悬停应出现描边");
+            Event.fireEvent(abuse, mouseEvent(MouseEvent.MOUSE_EXITED));
+            assertEquals(onStyle, abuse.getStyle(), "离开后要还原成开启态的红色，而不是未选中态");
+            return null;
+        });
+    }
+
+    private static MouseEvent mouseEvent(EventType<MouseEvent> type) {
+        return new MouseEvent(type, 0, 0, 0, 0, MouseButton.NONE, 0,
+                false, false, false, false, false, false, false, false, false, false, null);
+    }
+
+    /** 反射取私有的音效按钮。 */
+    private static Button soundButtonOf(MainMenuView menu) {
+        try {
+            Field field = MainMenuView.class.getDeclaredField("soundButton");
+            field.setAccessible(true);
+            return (Button) field.get(menu);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("取不到音效按钮", e);
+        }
     }
 
     /** 反射取私有的作弊开关按钮。 */

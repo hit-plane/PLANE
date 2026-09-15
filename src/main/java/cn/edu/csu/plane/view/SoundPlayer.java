@@ -90,6 +90,14 @@ public final class SoundPlayer {
     /** 整个音频子系统不可用（缺 javafx-media 原生库等）时置位，之后一律不再尝试。 */
     private static volatile boolean soundSystemUnavailable;
 
+    /**
+     * 玩家在菜单左下角按的那个"音效开/关"（F14）：默认开。
+     *
+     * <p>与配置总开关 {@link GameConfig#SOUND_ENABLED} 是<b>与</b>的关系：配置关掉就是全局静音，
+     * 这里再开也没声；配置开着时由玩家在界面上决定。只存在内存里、不落盘——重启回到默认（开）。</p>
+     */
+    private static volatile boolean playerEnabled = true;
+
     /** 预加载是否已经排上（或已跑完）：只允许起一条加载线程，重复调用幂等。 */
     private static final AtomicBoolean PRELOAD_STARTED = new AtomicBoolean();
 
@@ -199,13 +207,30 @@ public final class SoundPlayer {
     }
 
     /**
-     * 是否出声：配置里的总开关开着，且没有测试用的静音系统属性，且音频子系统没被判死。
+     * 是否出声：玩家开关开着、配置里的总开关开着、没有测试用的静音系统属性、且音频子系统没被判死。
      * 包内可见是为了让 {@code SoundPlayerTest} 也能查这个口径。
      */
     static boolean isEnabled() {
-        return GameConfig.SOUND_ENABLED
+        return playerEnabled
+                && GameConfig.SOUND_ENABLED
                 && !Boolean.getBoolean("sound.disabled")
                 && !soundSystemUnavailable;
+    }
+
+    /**
+     * 玩家的音效开关当前是否开着。菜单左下角的按钮据此显示"音效开 / 音效关"——
+     * 显示的是<b>状态</b>而不是"按下去会发生什么"。
+     */
+    public static boolean isPlayerEnabled() {
+        return playerEnabled;
+    }
+
+    /**
+     * 开关音效（菜单按钮调用）。关掉后所有 {@link #play} 立即静默；
+     * 已经解码的素材留在缓存里、正在响的短音效也不打断——开关只管"往后还响不响"。
+     */
+    public static void setPlayerEnabled(boolean enabled) {
+        playerEnabled = enabled;
     }
 
     /**
