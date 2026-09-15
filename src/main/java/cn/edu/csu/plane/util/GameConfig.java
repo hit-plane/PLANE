@@ -1,5 +1,7 @@
 package cn.edu.csu.plane.util;
 
+import cn.edu.csu.plane.model.SoundEvent;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -438,6 +440,20 @@ public final class GameConfig {
 
     /** 全局音量，取值 0.0～1.0；越界不报错，播放时夹紧。 */
     public static final double SOUND_VOLUME = getDouble("sound.volume", 0.7);
+
+    /**
+     * 单个音效事件在 {@link #SOUND_VOLUME} 之上再乘的倍率：读 {@code sound.volume.<事件名>}，
+     * 事件名取 {@link SoundEvent} 的小写（如 {@code sound.volume.enemy_hit=0.5}）。
+     * <b>没配的事件返回 1.0</b>，即与全局音量一致——只有"天生该轻一点"的那几声才单独写一行。
+     *
+     * <p>用 {@link java.util.Locale#ROOT} 转小写：默认的 {@code toLowerCase()} 在土耳其语环境下
+     * 会把 {@code ENEMY_HIT} 变成 {@code enemy_hıt}（无点 i），配置项就匹配不上、悄悄退回 1.0 了。</p>
+     *
+     * <p>倍率只影响音量、不影响放不放；写了负数或天文数字也不报错，播放时和全局音量一起夹紧。</p>
+     */
+    public static double soundVolumeOf(SoundEvent event) {
+        return getDouble("sound.volume." + event.name().toLowerCase(java.util.Locale.ROOT), 1.0);
+    }
 
     private GameConfig() {
     }

@@ -258,6 +258,19 @@ class GameControllerTest {
         assertSame(model.getHitEffects(), view.lastHitEffects, "渲染的应是模型当前的受击特效列表");
     }
 
+    /**
+     * 音效（F14）要抢在这一帧重绘之前交给视图。
+     *
+     * <p>次序反过来（先画后放）的话，一声"击毁"得等整帧 Canvas 画完才发出去，
+     * 画面越重延迟越明显；这里把次序钉住，免得日后改控制层时不知不觉退回去。</p>
+     */
+    @Test
+    void soundEvents_shouldReachTheViewBeforeRendering() {
+        controller.start();
+        step();
+        assertEquals(List.of("sound", "render"), view.callOrder, "音效应在重绘之前发出");
+    }
+
     // ========== 5. 终局结算 ==========
 
     /**
@@ -662,6 +675,9 @@ class GameControllerTest {
     /** 假视图：只记录被渲染了几次、渲染的是谁、结算弹了几次与得分用时。 */
     private static final class RecordingView extends GameView {
 
+        /** 这一局里视图被调用的次序：用来核对"先放声、后重绘"。 */
+        private final List<String> callOrder = new ArrayList<>();
+
         private int renderCount;
         private int showGameOverCount;
         private long lastShownScore;
@@ -680,6 +696,7 @@ class GameControllerTest {
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
                            List<BombWave> waves, List<HitEffect> hitEffects, int level,
                            double levelProgress, GameStatus status, double elapsedTime, double deltaTime) {
+            callOrder.add("render");
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
@@ -688,6 +705,12 @@ class GameControllerTest {
             lastHitEffects = hitEffects;
             lastRenderedLevelProgress = levelProgress;
             lastRenderedElapsed = elapsedTime;
+        }
+
+        /** 只记"这一帧的音效交过来了"，不真去放：测试期由 surefire 的 -Dsound.disabled 兜住静音。 */
+        @Override
+        public void playSounds(List<SoundEvent> soundEvents) {
+            callOrder.add("sound");
         }
 
         @Override

@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.util;
 
+import cn.edu.csu.plane.model.SoundEvent;
 import org.junit.jupiter.api.Test;
 
 import java.io.InputStream;
@@ -11,6 +12,20 @@ import static org.junit.jupiter.api.Assertions.*;
  * 只要配置文件没被打进包里，第一个断言就会红——这是"配置没生效"的第一道哨兵。
  */
 class GameConfigTest {
+
+    /**
+     * 单个音效的音量倍率：配了的按配置读，没配的退回 1.0（= 与全局音量一致）。
+     *
+     * <p>退回 1.0 这条是口径本身：音量倍率是"只给天生该轻的那几声开的口子"，
+     * 不是要求每个事件都去配一行，漏配不该变成静音或巨响。</p>
+     */
+    @Test
+    void soundVolumeMultiplierIsReadPerEvent() {
+        assertTrue(GameConfig.soundVolumeOf(SoundEvent.ENEMY_HIT) < 1.0,
+                "击中敌机这一声该在配置里压轻（sound.volume.enemy_hit）");
+        assertEquals(1.0, GameConfig.soundVolumeOf(SoundEvent.VICTORY), 1e-9,
+                "没单独配的事件该退回 1.0，即与全局音量一致");
+    }
 
     @Test
     void configFileIsOnClasspath() {

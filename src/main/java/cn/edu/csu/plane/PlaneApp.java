@@ -9,6 +9,7 @@ import cn.edu.csu.plane.view.GameOverView;
 import cn.edu.csu.plane.view.GameView;
 import cn.edu.csu.plane.view.MainMenuView;
 import cn.edu.csu.plane.view.PauseView;
+import cn.edu.csu.plane.view.SoundPlayer;
 import javafx.application.Application;
 import javafx.event.EventHandler;
 import javafx.geometry.Rectangle2D;
@@ -71,6 +72,10 @@ public class PlaneApp extends Application {
 
     @Override
     public void start(Stage stage) {
+        // 音效(F14)预加载：趁玩家还在菜单上，在后台把素材解码好、把播放管线暖起来。
+        // 不预加载的话，每种音效第一次响都要现解码并现开输出设备，那一下是听得出来的延迟。
+        SoundPlayer.preload();
+
         GameModel model = new GameModelImpl();
         GameView gameView = new GameView();
         MainMenuView menuView = new MainMenuView();

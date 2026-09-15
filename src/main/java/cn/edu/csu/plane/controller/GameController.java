@@ -74,7 +74,7 @@ public class GameController {
     }
 
     /**
-     * 单帧回调：算步长 → 截断 → 读输入 → 推模型 → 渲染。
+     * 单帧回调：算步长 → 截断 → 读输入 → 推模型 → 放声 → 渲染。
      *
      * <p>步长截断见 {@link GameConfig#MAX_FRAME_DELTA}：窗口拖拽或 GC 停顿会让相邻帧
      * 间隔突然变大，不截断则高速自爆机单帧位移可能超过碰撞盒最短边而产生穿透（NF-03）。</p>
@@ -99,6 +99,10 @@ public class GameController {
                     input.getMoveY() * GameConfig.PLAYER_SPEED * deltaTime);
             model.update(deltaTime);
         }
+
+        // 放声紧跟模型推进、抢在整帧重绘之前：这一帧攒下的事件在模型算完的那一刻就发出去，
+        // 不必等 Canvas 画完才响（终局那一帧的阵亡/通关音同理，且在结算面板弹出之前）。
+        view.playSounds(model.consumeSoundEvents());
 
         if (isRunOver(model.getStatus()) && !awaitingResume) {
             awaitingResume = true;
@@ -144,17 +148,15 @@ public class GameController {
     }
 
     /**
-     * 每帧渲染画面：把渲染所需的本局数据（含关卡进度与本局用时）一并交给视图，
-     * 再把模型这一帧攒下的音效事件（F14）转交给视图去播。
+     * 每帧渲染画面：把渲染所需的本局数据（含关卡进度与本局用时）一并交给视图。
      *
-     * <p>音效单独一次调用而不是塞进 {@link GameView#render} 的参数表：渲染是纯绘制，
-     * 放声是有副作用的动作，而且事件是"取走即清空"的一次性快照，语义上不属于画面数据。</p>
+     * <p>只管画、不管声：音效是"取走即清空"的一次性事件，而且要在重绘之前就发出去，
+     * 所以由 {@link #onFrame} 单独调 {@link GameView#playSounds}（F14），不塞进这里。</p>
      */
     public void render() {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems(),
                 model.getWaves(), model.getHitEffects(), model.getLevel(), model.getLevelProgress(),
                 model.getStatus(), model.getElapsedTime(), lastDelta);
-        view.playSounds(model.consumeSoundEvents());
     }
 
     /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */

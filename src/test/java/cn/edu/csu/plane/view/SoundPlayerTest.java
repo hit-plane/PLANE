@@ -58,6 +58,48 @@ class SoundPlayerTest {
     }
 
     /**
+     * 击中敌机那一声要明显比别的音效轻（F14 的调音口径，见配置里的 {@code sound.volume.enemy_hit}）。
+     *
+     * <p>它一局里响得最密——每次打中、每次打死都各来一声，跟别的音效一个音量就会盖住
+     * 通关、拾取这些更要紧的声音。所以这里把"它比谁轻"钉住：日后谁把那一行配置删了或改回 1.0，
+     * 不是改个数字没人管，而是有一条测试会告诉他这是刻意的。</p>
+     */
+    @Test
+    void enemyHitSoundIsQuieterThanTheRest() {
+        assertTrue(SoundPlayer.volumeOf(SoundEvent.ENEMY_HIT) < SoundPlayer.volumeOf(SoundEvent.VICTORY),
+                "击中音该比通关音轻");
+        assertTrue(SoundPlayer.volumeOf(SoundEvent.ENEMY_HIT) < SoundPlayer.volumeOf(SoundEvent.MENU_CLICK),
+                "击中音该比菜单点击音轻");
+        assertTrue(SoundPlayer.volumeOf(SoundEvent.ENEMY_DESTROYED) < SoundPlayer.volumeOf(SoundEvent.ITEM_PICKUP),
+                "击毁音与击中音用的是同一份音频，也该一起轻下来");
+    }
+
+    /** 每个事件的音量都得落在 0.0～1.0 里：配置写超范围（哪怕是负数）也不该把播放搞崩。 */
+    @Test
+    void everyEventVolumeIsClampedToUnitRange() {
+        for (SoundEvent event : SoundEvent.values()) {
+            double volume = SoundPlayer.volumeOf(event);
+            assertTrue(volume >= 0.0 && volume <= 1.0,
+                    "事件 " + event + " 的音量 " + volume + " 超出了 0.0～1.0");
+        }
+    }
+
+    /**
+     * 预加载在静音（测试期）下必须是空操作：不解码、不起线程、更不能把调用线程卡住。
+     *
+     * <p>守的是 {@code preload()} 的实现口径——<b>先看开关、再干活</b>。真放出声与否不必在这里验，
+     * 预加载的意义只是把将来的活儿提前做掉，做没做只影响延迟、不影响响不响。</p>
+     */
+    @Test
+    void preloadStaysOutOfTheWayWhileMuted() {
+        assertDoesNotThrow(SoundPlayer::preload);
+        assertDoesNotThrow(SoundPlayer::preload);   // 重复调用幂等，不该起第二条加载线程
+        assertFalse(Thread.getAllStackTraces().keySet().stream()
+                        .anyMatch(t -> "sound-preload".equals(t.getName())),
+                "静音时不该起音效预加载线程");
+    }
+
+    /**
      * 测试期必须静音：pom 里 surefire 配了 {@code -Dsound.disabled=true}。
      * 这条守的是那个配置被误删——删了的话 {@code MainMenuViewTest} 每按一次按钮
      * 都会真的去解码并播放一次点击音（没声卡的机器上还会报错）。
