@@ -137,12 +137,11 @@ public class GameView {
 
     /**
      * 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → 受击特效 → HUD
-     * （HUD 里带当前难度与本局用时）。
+     * （HUD 里带关卡、关卡进度与本局用时；血量与血量上限直接从 {@code player} 上取）。
      */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                       List<BombWave> waves, List<HitEffect> hitEffects, int score, int level,
-                       int highScore, GameStatus status, Difficulty difficulty,
-                       double elapsedTime, double deltaTime) {
+                       List<BombWave> waves, List<HitEffect> hitEffects, int level,
+                       double levelProgress, GameStatus status, double elapsedTime, double deltaTime) {
         // 检测关卡变化（升级或重开新局），触发过渡动画
         if (lastLevel != -1 && level != lastLevel) {
             transitionLevel = level;
@@ -161,8 +160,8 @@ public class GameView {
         drawPlayer(player);
         drawWaves(waves);
         drawHitEffects(hitEffects);
-        hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower(),
-                difficulty.getLabel(), elapsedTime);
+        hud.draw(level, levelProgress, player.getHealth(), player.getRegularMaxHealth(),
+                player.getFirePower(), elapsedTime);
 
         // 关卡过渡动画（覆盖在最上层）
         if (levelTransitionTimer > 0) {

@@ -42,13 +42,54 @@ public final class AssetLoader {
     /**
      * 预处理贴图：旋转 {@code rotation} 度后，等比缩放到高度 {@code targetH}。
      * 宽度按旋转后的宽高比自动确定。结果缓存，避免每帧重复处理。
+     *
+     * <p>缩放用双线性平滑，适合照片类贴图（飞机、敌机等）。像素画（如 MC 风格 HUD 素材）
+     * 请用 {@link #prepare(String, double, double, boolean)} 关掉平滑，否则放大会糊成一团。</p>
      */
     public static Image prepare(String relativePath, double targetH, double rotation) {
-        String key = relativePath + "@" + targetH + "@" + rotation;
-        return PREPARED_CACHE.computeIfAbsent(key, k -> doPrepare(relativePath, targetH, rotation));
+        return prepare(relativePath, targetH, rotation, true);
     }
 
-    private static Image doPrepare(String relativePath, double targetH, double rotation) {
+    /**
+     * 预处理贴图，可指定缩放是否平滑。
+     *
+     * @param smooth true = 双线性平滑（照片类贴图）；false = 最近邻（像素画，保持硬边）
+     */
+    public static Image prepare(String relativePath, double targetH, double rotation, boolean smooth) {
+        String key = relativePath + "@" + targetH + "@" + rotation + "@" + smooth;
+        return PREPARED_CACHE.computeIfAbsent(key,
+                k -> doPrepare(relativePath, targetH, rotation, smooth));
+    }
+
+    /**
+     * 预处理贴图到<b>指定宽高</b>（不旋转），可指定是否平滑。
+     *
+     * <p>与 {@link #prepare(String, double, double, boolean)} 的区别是不保持原始宽高比：
+     * 适合经验条这类"按布局尺寸拉伸"的条状素材。先生成到最终尺寸、绘制时 1:1 贴出，
+     * 避免每帧二次重采样把像素画糊掉。</p>
+     */
+    public static Image prepareSized(String relativePath, double targetW, double targetH, boolean smooth) {
+        String key = relativePath + "@sized@" + targetW + "x" + targetH + "@" + smooth;
+        return PREPARED_CACHE.computeIfAbsent(key,
+                k -> doPrepareSized(relativePath, targetW, targetH, smooth));
+    }
+
+    private static Image doPrepareSized(String relativePath, double targetW, double targetH, boolean smooth) {
+        Image raw = load(relativePath);
+        if (raw == null) {
+            return null;
+        }
+        Canvas canvas = new Canvas(targetW, targetH);
+        GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(smooth);
+        gc.drawImage(raw, 0, 0, targetW, targetH);
+
+        SnapshotParameters params = new SnapshotParameters();
+        params.setFill(Color.TRANSPARENT);
+        return canvas.snapshot(params, null);
+    }
+
+    private static Image doPrepare(String relativePath, double targetH, double rotation, boolean smooth) {
         Image raw = load(relativePath);
         if (raw == null) {
             return null;
@@ -67,6 +108,7 @@ public final class AssetLoader {
 
         Canvas canvas = new Canvas(w, h);
         GraphicsContext gc = canvas.getGraphicsContext2D();
+        gc.setImageSmoothing(smooth);
         gc.save();
         gc.translate(w / 2, h / 2);
         gc.rotate(rotation);

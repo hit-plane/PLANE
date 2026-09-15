@@ -259,19 +259,29 @@ class GameControllerTest {
 
     // ========== 5. 终局结算 ==========
 
-    /** 难度（F16）要一路传到视图：渲染与结算都得带上当前档位，界面才显示得出来。 */
+    /**
+     * 难度（F16）要一路传到结算：结算面板得显示本局难度。
+     * 局内 HUD 已不显示难度（改由窗口标题呈现，F25），故渲染不再携带难度。
+     */
     @Test
-    void difficultyIsForwardedToView() {
+    void difficultyIsForwardedToSettlement() {
         model.setDifficulty(Difficulty.HARD);
         controller.start();
-
-        step();
-        assertEquals(Difficulty.HARD, view.lastRenderedDifficulty, "每帧渲染该带上当前难度");
 
         model.setScore(500);
         model.setStatus(GameStatus.GAME_OVER);
         step();
         assertEquals(Difficulty.HARD, view.lastShownDifficulty, "结算面板该显示本局难度");
+    }
+
+    /** 关卡进度（F25）每帧传给视图：HUD 的经验条按它填充。 */
+    @Test
+    void levelProgressIsForwardedToView() {
+        model.setLevelProgress(0.42);
+        controller.start();
+
+        step();
+        assertEquals(0.42, view.lastRenderedLevelProgress, 1e-9, "每帧渲染该带上本关进度");
     }
 
     /** 用时（F24）也要一路传到视图：HUD 每帧实时计时，结算显示本局用时与是否刷新纪录。 */
@@ -451,6 +461,7 @@ class GameControllerTest {
         private Difficulty difficulty = Difficulty.NORMAL;
         private boolean cheatEnabled;
         private double elapsedTime;
+        private double levelProgress;
         private ClearTime runClearTime = ClearTime.notCleared();
         private boolean newClearRecord;
 
@@ -474,6 +485,10 @@ class GameControllerTest {
 
         void setElapsedTime(double elapsedTime) {
             this.elapsedTime = elapsedTime;
+        }
+
+        void setLevelProgress(double levelProgress) {
+            this.levelProgress = levelProgress;
         }
 
         void setRunClearTime(ClearTime runClearTime) {
@@ -569,6 +584,11 @@ class GameControllerTest {
         }
 
         @Override
+        public double getLevelProgress() {
+            return levelProgress;
+        }
+
+        @Override
         public int getHighScore() {
             return highScore;
         }
@@ -638,7 +658,7 @@ class GameControllerTest {
         private Difficulty lastShownDifficulty;
         private ClearTime lastShownClearTime;
         private boolean lastShownNewRecord;
-        private Difficulty lastRenderedDifficulty;
+        private double lastRenderedLevelProgress;
         private double lastRenderedElapsed;
         private Player lastPlayer;
         private List<Enemy> lastEnemies;
@@ -648,16 +668,15 @@ class GameControllerTest {
 
         @Override
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
-                           List<BombWave> waves, List<HitEffect> hitEffects, int score, int level,
-                           int highScore, GameStatus status, Difficulty difficulty,
-                           double elapsedTime, double deltaTime) {
+                           List<BombWave> waves, List<HitEffect> hitEffects, int level,
+                           double levelProgress, GameStatus status, double elapsedTime, double deltaTime) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
             lastBullets = bullets;
             lastItems = items;
             lastHitEffects = hitEffects;
-            lastRenderedDifficulty = difficulty;
+            lastRenderedLevelProgress = levelProgress;
             lastRenderedElapsed = elapsedTime;
         }
 

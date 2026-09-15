@@ -531,6 +531,9 @@ public class GameModelImpl implements GameModel {
     public int getLevel() { return gameState.getLevel(); }
 
     @Override
+    public double getLevelProgress() { return gameState.getLevelProgress(); }
+
+    @Override
     public int getHighScore() { return highScore; }
 
     /** 按档位读存档：三档各记各的，取哪一档就把哪一档那份读出来（F16）。 */

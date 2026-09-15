@@ -101,6 +101,33 @@ class GameStateTest {
         assertEquals(0.032, state.getElapsedTime(), 0.0001);
     }
 
+    /** 本关进度（F25）：分子是"本关已得的分"，分母恒为一关的跨度。 */
+    @Test
+    void levelProgressMeasuresScoreWithinCurrentLevel() {
+        assertEquals(0.0, state.getLevelProgress(), 0.0001, "开局尚未得分");
+
+        state.addScore(GameConfig.SCORE_PER_LEVEL / 2);
+        assertEquals(0.5, state.getLevelProgress(), 0.0001, "500 分正好是本关一半");
+
+        state.addScore(GameConfig.SCORE_PER_LEVEL / 2);   // 满 1000 分 → 升到第 2 关
+        assertEquals(2, state.getLevel());
+        assertEquals(0.0, state.getLevelProgress(), 0.0001, "刚升关时进度归零，重新开始攒");
+
+        state.addScore(GameConfig.SCORE_PER_LEVEL / 4);
+        assertEquals(0.25, state.getLevelProgress(), 0.0001);
+    }
+
+    /** 关卡封顶后仍按"距通关分还差多少"推进，并且一次大额加分越过阈值时夹在 1.0。 */
+    @Test
+    void levelProgressIsClampedAtOne() {
+        state.addScore(GameConfig.SCORE_PER_LEVEL * (GameState.MAX_LEVEL - 1) + 900);
+        assertEquals(GameState.MAX_LEVEL, state.getLevel());
+        assertEquals(0.9, state.getLevelProgress(), 0.0001, "第 10 关 9900 分即进度 0.9");
+
+        state.addScore(1000);   // 冲破通关阈值，进度会算到 1.5
+        assertEquals(1.0, state.getLevelProgress(), 0.0001, "越过阈值时夹到 1.0，经验条不会溢出");
+    }
+
     /** 计时封顶（F24）：超过一小时后不再累计，此后一律按"超时"看待。 */
     @Test
     void elapsedTimeIsCappedAtConfiguredLimit() {

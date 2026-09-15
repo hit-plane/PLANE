@@ -55,6 +55,12 @@ public interface GameModel {
     /** 返回当前关卡。 */
     int getLevel();
 
+    /**
+     * 返回本关进度（F25）：当前得分相对本关起止阈值的比例，取值 [0, 1]。
+     * HUD 的经验条按它填充；关卡封顶后仍按"距通关分还差多少"推进。
+     */
+    double getLevelProgress();
+
     /** 返回历史最高分（F13）；从没打过或存档损坏时为 0。 */
     int getHighScore();
 

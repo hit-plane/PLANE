@@ -68,6 +68,18 @@ public class GameState {
         return elapsedTime >= GameConfig.MAX_TRACKED_TIME;
     }
 
+    /**
+     * 本关进度（F25）：当前得分相对本关起止阈值的比例，取值 [0, 1]。
+     *
+     * <p>每关跨度恒为 {@link #SCORE_PER_LEVEL}，所以分母固定；
+     * 分子是"本关已得的分"。关卡封顶后停在 10 级（对应通关分），此时分子最大也就到 1；
+     * 一次大额加分（炸弹清屏）可能把得分顶过阈值，故结果夹紧在 [0, 1]，HUD 的经验条不会溢出。</p>
+     */
+    public double getLevelProgress() {
+        double inLevel = score - (long) (level - 1) * SCORE_PER_LEVEL;
+        return Math.max(0, Math.min(1, inLevel / SCORE_PER_LEVEL));
+    }
+
     public GameStatus getStatus() { return status; }
     public void setStatus(GameStatus status) { this.status = status; }
     public long getScore() { return score; }

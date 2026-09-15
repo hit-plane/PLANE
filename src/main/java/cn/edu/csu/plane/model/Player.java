@@ -271,6 +271,15 @@ public class Player extends Entity {
     }
 
     public int getHealth() { return health; }
+
+    /**
+     * 本档<b>不计作弊</b>的血量上限。HUD 的十颗心以它为分母（F25）：作弊时血量上限被抬到
+     * 9999，但心的刻度仍按常规上限算，多出来的部分直接算作满格——否则开作弊后血条会一直"
+     * 掉不完"，看不出受伤。
+     */
+    public int getRegularMaxHealth() {
+        return GameConfig.playerMaxHealthAt(difficulty, false);
+    }
     public int getMaxHealth() { return maxHealth; }
     public int getFirePower() { return firePower; }
     public double getFireRate() { return fireRate; }

@@ -40,6 +40,30 @@ class PlayerTest {
         assertTrue(player.isReadyToShoot());
     }
 
+    /**
+     * 常规血量上限（F25）：HUD 十颗心的分母不计作弊加成。开着作弊时实际上限被抬到 9999，
+     * 但分母仍是 100，于是多出来的血量一律算满格，血条不会"掉不完"。
+     */
+    @Test
+    void regularMaxHealthExcludesCheatBonus() {
+        for (Difficulty difficulty : Difficulty.values()) {
+            Player normal = new Player(0, 0, BODY, BODY, difficulty, false);
+            Player cheat = new Player(0, 0, BODY, BODY, difficulty, true);
+
+            assertEquals(GameConfig.DEFAULT_HEALTH, normal.getRegularMaxHealth(),
+                    difficulty.getLabel() + " 档的常规上限应是基准血量");
+            assertEquals(normal.getRegularMaxHealth(), cheat.getRegularMaxHealth(),
+                    difficulty.getLabel() + " 档开不开作弊，十颗心的分母都一样");
+            assertTrue(cheat.getMaxHealth() >= cheat.getRegularMaxHealth(),
+                    "实际血量上限不会低于心的分母");
+        }
+
+        Player tormentCheat = new Player(0, 0, BODY, BODY, Difficulty.TORMENT, true);
+        assertEquals(9999, tormentCheat.getMaxHealth(), "折磨档开作弊上限抬到 9999");
+        assertEquals(GameConfig.DEFAULT_HEALTH, tormentCheat.getRegularMaxHealth(),
+                "但十颗心的分母还是 100");
+    }
+
     @Test
     void movesNormally() {
         player.move(10, 20);

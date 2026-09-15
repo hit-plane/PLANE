@@ -4,6 +4,7 @@ import cn.edu.csu.plane.controller.GameController;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameModelImpl;
 import cn.edu.csu.plane.model.GameStatus;
+import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
 import cn.edu.csu.plane.view.GameOverView;
 import cn.edu.csu.plane.view.GameView;
@@ -131,13 +132,17 @@ public class PlaneApp extends Application {
             pauseView.getNode().setVisible(false);
             controller.resume();
         });
-        // 最快通关记录按难度分档：每次回到菜单都按当前所选档位显示，切换难度也跟着刷新。
-        Runnable refreshMenuRecord =
-                () -> menuView.setClearRecord(model.getBestClearTime(menuView.getSelectedDifficulty()));
+        // 菜单信息随所选难度刷新：最快通关记录按档显示（F24），窗口标题带上档位名（F25，
+        // 难度不再占用 HUD 的位置）。切换难度、回到菜单、解锁隐藏档时都会调到。
+        Runnable refreshMenuInfo = () -> {
+            Difficulty selected = menuView.getSelectedDifficulty();
+            menuView.setClearRecord(model.getBestClearTime(selected));
+            stage.setTitle("飞机大战 - " + selected.getLabel());
+        };
 
         pauseView.setOnQuit(() -> {
             pauseView.getNode().setVisible(false);
-            refreshMenuRecord.run();
+            refreshMenuInfo.run();
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
@@ -151,11 +156,11 @@ public class PlaneApp extends Application {
 
         // 主菜单：按所选皮肤与难度开始游戏。难度要在 start() 之前写进模型，
         // start() 内部会 initGame()，生成敌机时读的就是这个值。
-        menuView.setOnDifficultyChange(difficulty -> refreshMenuRecord.run());
+        menuView.setOnDifficultyChange(difficulty -> refreshMenuInfo.run());
         // 作弊开关（暗号解锁后出现）：切一下就写进模型并重算玩家机，开局前定好即可；
         // 模型侧对"未开局"状态是安全的（只是重建本档数值，不影响菜单态）。
         menuView.setOnCheatChange(cheat -> model.setCheatEnabled(cheat));
-        refreshMenuRecord.run();
+        refreshMenuInfo.run();
         menuView.setOnStart(() -> {
             gameView.setPlayerSkin(menuView.getSelectedPlaneSkin());
             gameView.setPlayerBulletSkin(menuView.getSelectedBulletSkin());
@@ -173,7 +178,7 @@ public class PlaneApp extends Application {
         secretCodeHandler = event -> {
             if (menuShown && handleSecretKey(event.getCode())) {
                 menuView.unlockTorment();
-                refreshMenuRecord.run();
+                refreshMenuInfo.run();
             }
         };
         attachSecretCode(scene);
@@ -185,7 +190,7 @@ public class PlaneApp extends Application {
         });
         gameOverView.setOnMenu(() -> {
             gameOverView.getNode().setVisible(false);
-            refreshMenuRecord.run();
+            refreshMenuInfo.run();
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
@@ -195,7 +200,7 @@ public class PlaneApp extends Application {
         gameOverView.getNode().setVisible(false);
         pauseView.getNode().setVisible(false);
 
-        stage.setTitle("飞机大战");
+        refreshMenuInfo.run();   // 标题带上当前所选难度
         stage.setScene(scene);
         stage.setMinWidth(LOGICAL_W * 0.4);
         stage.setMinHeight(LOGICAL_H * 0.4);
