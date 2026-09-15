@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>飞机大战 部署图（示意）</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: "Microsoft YaHei", "PingFang SC", sans-serif; background: #f5f7fa; color: #1f2937; padding: 20px; }
+  .title { text-align: center; font-size: 20px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { text-align: center; font-size: 13px; color: #6b7280; margin-bottom: 20px; }
+  .diagram { max-width: 860px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; }
+  .box { border: 2px solid; border-radius: 10px; padding: 12px 16px; margin: 8px 0; position: relative; }
+  .box-label { position: absolute; top: -11px; left: 12px; background: #fff; padding: 0 6px; font-size: 12px; font-weight: 700; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .col { flex: 1; min-width: 160px; }
+  .node { border-radius: 8px; padding: 10px 12px; font-size: 14px; margin: 6px 0; }
+  .node small { display: block; color: #6b7280; font-size: 12px; margin-top: 2px; }
+  .arrow-down { text-align: center; font-size: 22px; color: #64748b; line-height: 1; margin: 2px 0; }
+  .arrow-right { display: inline-block; margin: 0 6px; color: #64748b; font-weight: 700; }
+  .tag { display: inline-block; font-size: 11px; border-radius: 4px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+  .blue   { border-color: #2563eb; } .blue .box-label { color: #2563eb; }
+  .green  { border-color: #059669; } .green .box-label { color: #059669; }
+  .amber  { border-color: #d97706; } .amber .box-label { color: #d97706; }
+  .slate  { border-color: #64748b; } .slate .box-label { color: #64748b; }
+  .n-blue   { background: #eff6ff; border: 1px solid #93c5fd; }
+  .n-green  { background: #ecfdf5; border: 1px solid #6ee7b7; }
+  .n-amber  { background: #fffbeb; border: 1px solid #fcd34d; }
+  .n-slate  { background: #f1f5f9; border: 1px solid #cbd5e1; }
+  .n-white  { background: #fff; border: 1px solid #d1d5db; }
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; justify-content: center; font-size: 12px; color: #4b5563; margin-top: 16px; }
+  .legend span { display: inline-flex; align-items: center; gap: 4px; }
+  .legend i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .footnote { text-align: center; font-size: 12px; color: #9ca3af; margin-top: 12px; }
+  .cmd { font-family: Consolas, monospace; font-size: 13px; background: #0f172a; color: #e2e8f0; padding: 8px 12px; border-radius: 6px; margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="title">飞机大战 部署图（示意）</div>
+<div class="subtitle">交付物运行关系：用户 → JRE → jar → 资源/存档</div>
+<div class="diagram">
+
+  <!-- 用户操作 -->
+  <div class="box blue">
+    <span class="box-label">用户启动方式</span>
+    <div class="row">
+      <div class="col">
+        <div class="node n-blue"><b>方式 A：双击 jar</b><small>plane-1.0.0-release.jar</small></div>
+      </div>
+      <div class="col">
+        <div class="node n-blue"><b>方式 B：命令行</b><small>java -jar plane-1.0.0-release.jar</small></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- JRE -->
+  <div class="box green">
+    <span class="box-label">运行环境（必备）</span>
+    <div class="node n-green"><b>JRE / JDK 17</b><small>JavaFX 17.0.8 · 图形运行时 · 未安装则无法启动</small></div>
+  </div>
+
+  <div class="arrow-down">▼</div>
+
+  <!-- jar 内部 -->
+  <div class="box slate">
+    <span class="box-label">应用 jar（代码 + 配置）</span>
+    <div class="row">
+      <div class="col">
+        <div class="node n-white"><b>PlaneApp</b><small>主类 · 程序入口</small></div>
+        <div class="node n-slate"><b>view 层</b><small>GameView / MainMenuView / HUDView</small></div>
+      </div>
+      <div class="col">
+        <div class="node n-slate"><b>controller 层</b><small>GameController / InputHandler</small></div>
+        <div class="node n-slate"><b>model 层</b><small>GameModelImpl / Player / Enemy / Item</small></div>
+      </div>
+      <div class="col">
+        <div class="node n-amber"><b>config.properties</b><small>难度 · 数值 · 窗口配置</small></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外部依赖 -->
+  <div class="row" style="margin-top:14px;">
+    <div class="col">
+      <div class="box amber" style="margin:8px 0;">
+        <span class="box-label">外部资源目录（读取）</span>
+        <div class="node n-amber"><b>resource/pictures/</b><small>飞机 · 敌机 · 子弹 · 道具 · 背景 · 特效 · 菜单贴图</small></div>
+        <div style="font-size:12px;color:#4b5563;margin-top:6px;">jar 外随包分发，缺失时画面无法渲染</div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="box amber" style="margin:8px 0;">
+        <span class="box-label">运行时存档（读写）</span>
+        <div class="node n-amber"><b>highscore*.txt</b><small>三档难度最高分持久化</small></div>
+        <div style="font-size:12px;color:#4b5563;margin-top:6px;">首次运行自动创建并初始化为 0</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span><i style="background:#2563eb;"></i>用户操作</span>
+    <span><i style="background:#059669;"></i>运行环境</span>
+    <span><i style="background:#64748b;"></i>应用 jar</span>
+    <span><i style="background:#d97706;"></i>外部资源/存档</span>
+    <span style="color:#64748b;">→ 依赖/读取 ｜ ⇄ 读写</span>
+  </div>
+  <div class="footnote">示意结构：表达交付物构成与运行依赖，不表示精确文件布局</div>
+</div>
+</body>
+</html>
