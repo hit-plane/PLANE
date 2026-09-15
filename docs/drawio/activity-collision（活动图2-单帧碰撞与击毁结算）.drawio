@@ -174,7 +174,7 @@
             <mxGeometry height="746" width="8" x="440" y="205" as="geometry" />
           </mxCell>
         </UserObject>
-        <UserObject label="" plantUmlData="{&#xa;  &quot;data&quot;: &quot;@startuml activity-battle-loop\nskinparam defaultFontName \&quot;Noto Sans CJK SC\&quot;\ntitle 活动图1：一局战斗生命周期\nstart\n:开始游戏，初始化战场（F01）\\n分数归零、玩家满血、清空场上实体;\nrepeat\n  if (玩家按 P 键？) then (是)\n    :暂停，冻结敌机/子弹/道具运动与计分（F12）;\n    :等待玩家再次按 P 恢复;\n  else (否)\n  endif\n  :系统定时器推进一帧（F03/F04/F05）\\n生成敌机、敌机移动射击、双方子弹飞行;\n  if (玩家子弹命中敌机？) then (是)\n    :敌机扣血；血量归零则销毁、计分（F08）\\n并按 20% 概率掉落道具（F10）;\n  else (否)\n  endif\n  if (玩家被敌弹命中或与敌机碰撞？) then (是)\n    :玩家扣血，或由护盾抵消一次（F07）\\n受击后进入 1 秒无敌;\n  else (否)\n  endif\nrepeat while (玩家血量归零？) is (否，回到帧循环) not (是)\n:游戏结束（F09）\\n冻结画面、显示本局得分、更新最高分（F13）;\nstop\n@enduml\n&quot;,&#xa;  &quot;config&quot;: null&#xa;}" id="0gnnCN16CAb7R19-QBHD-35">
+        <UserObject label="" plantUmlData="{&#xa;  &quot;data&quot;: &quot;@startuml activity-battle-loop\nskinparam defaultFontName \&quot;Noto Sans CJK SC\&quot;\ntitle 活动图1：一局战斗生命周期\nstart\n:开始游戏，初始化战场（F01）\\n分数归零、玩家满血、清空场上实体;\nrepeat\n  if (玩家按 Esc 键？) then (是)\n    :暂停，冻结敌机/子弹/道具运动与计分（F12）;\n    :等待玩家再次按 Esc 恢复;\n  else (否)\n  endif\n  :系统定时器推进一帧（F03/F04/F05）\\n生成敌机、敌机移动射击、双方子弹飞行;\n  if (玩家子弹命中敌机？) then (是)\n    :敌机扣血；血量归零则销毁、计分（F08）\\n并按当前关卡的掉落概率（第 1 关 50%）掉落道具（F10）;\n  else (否)\n  endif\n  if (玩家被敌弹命中或与敌机碰撞？) then (是)\n    :玩家扣血，或由护盾抵消一次（F07）\\n受击后进入 1 秒无敌;\n  else (否)\n  endif\nrepeat while (玩家血量归零？) is (否，回到帧循环) not (是)\n:游戏结束（F09）\\n冻结画面、显示本局得分、更新最高分（F13）;\nstop\n@enduml\n&quot;,&#xa;  &quot;config&quot;: null&#xa;}" id="0gnnCN16CAb7R19-QBHD-35">
           <mxCell connectable="0" parent="1" style="group;transparentBounds=1;editIcon=1;lockedGroup=0;groupPadding=10;" vertex="1">
             <mxGeometry as="geometry" />
           </mxCell>
@@ -218,7 +218,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="玩家按 P 键？" plantUmlId="diamond_8" plantUmlBaseStyle="shape=hexagon;perimeter=hexagonPerimeter2;fillColor=#F1F1F1;strokeColor=#181818;whiteSpace=wrap;fontSize=11;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="玩家按 P 键？" id="0gnnCN16CAb7R19-QBHD-42">
+        <UserObject label="玩家按 Esc 键？" plantUmlId="diamond_8" plantUmlBaseStyle="shape=hexagon;perimeter=hexagonPerimeter2;fillColor=#F1F1F1;strokeColor=#181818;whiteSpace=wrap;fontSize=11;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="玩家按 Esc 键？" id="0gnnCN16CAb7R19-QBHD-42">
           <mxCell parent="0gnnCN16CAb7R19-QBHD-35" style="shape=hexagon;perimeter=hexagonPerimeter2;fillColor=#F1F1F1;strokeColor=#181818;whiteSpace=wrap;fontSize=11;fontFamily=Noto Sans CJK SC;" vertex="1">
             <mxGeometry height="28" width="92" x="349" y="1190" as="geometry" />
           </mxCell>
@@ -239,7 +239,7 @@
             <mxGeometry height="36" width="270" x="260" y="1238" as="geometry" />
           </mxCell>
         </UserObject>
-        <UserObject label="等待玩家再次按 P 恢复" plantUmlId="action_12" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="等待玩家再次按 P 恢复" id="0gnnCN16CAb7R19-QBHD-45">
+        <UserObject label="等待玩家再次按 Esc 恢复" plantUmlId="action_12" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="等待玩家再次按 Esc 恢复" id="0gnnCN16CAb7R19-QBHD-45">
           <mxCell parent="0gnnCN16CAb7R19-QBHD-35" style="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" vertex="1">
             <mxGeometry height="36" width="142" x="324" y="1294" as="geometry" />
           </mxCell>
@@ -305,7 +305,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="敌机扣血；血量归零则销毁、计分（F08）&#xa;并按 20% 概率掉落道具（F10）" plantUmlId="action_24" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="敌机扣血；血量归零则销毁、计分（F08）&#xa;并按 20% 概率掉落道具（F10）" id="0gnnCN16CAb7R19-QBHD-54">
+        <UserObject label="敌机扣血；血量归零则销毁、计分（F08）&#xa;并按当前关卡的掉落概率（第 1 关 50%）掉落道具（F10）" plantUmlId="action_24" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="敌机扣血；血量归零则销毁、计分（F08）&#xa;并按当前关卡的掉落概率（第 1 关 50%）掉落道具（F10）" id="0gnnCN16CAb7R19-QBHD-54">
           <mxCell parent="0gnnCN16CAb7R19-QBHD-35" style="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" vertex="1">
             <mxGeometry height="36" width="246" x="272" y="1498" as="geometry" />
           </mxCell>
