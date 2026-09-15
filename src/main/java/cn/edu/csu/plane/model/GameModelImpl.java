@@ -35,7 +35,11 @@ public class GameModelImpl implements GameModel {
     private final List<HitEffect> hitEffects = new ArrayList<>();
     private final Random random;
     private final HighScoreStore highScoreStore;
+    /** 通关最短用时存档（F24）：与最高分一样按难度分档。 */
+    private final ClearTimeStore clearTimeStore;
     private int highScore;
+    /** 刚结束的这一局是否刷新了本档最短用时，供结算界面提示"新纪录"。 */
+    private boolean newClearRecord;
     private double spawnTimer;
     /**
      * 当前难度（F16）：默认普通档，由主菜单在开局前设定，只影响本局数值，不随重开重置。
@@ -65,6 +69,11 @@ public class GameModelImpl implements GameModel {
 
     /** 随机源与存档都可注入；测试把存档指到临时目录，免得往工作目录写文件。 */
     GameModelImpl(Random random, HighScoreStore highScoreStore) {
+        this(random, highScoreStore, ClearTimeStore.beside(highScoreStore.getFile()));
+    }
+
+    /** 三个依赖都可注入：用时存档默认落在最高分存档同目录，也可单独指定（测试用）。 */
+    GameModelImpl(Random random, HighScoreStore highScoreStore, ClearTimeStore clearTimeStore) {
         this.gameState = new GameState();
         this.difficulty = Difficulty.NORMAL;
         this.cheatEnabled = false;
@@ -74,8 +83,10 @@ public class GameModelImpl implements GameModel {
                 difficulty, cheatEnabled);
         this.random = random;
         this.highScoreStore = highScoreStore;
+        this.clearTimeStore = clearTimeStore;
         // 默认普通档：普通档的存档就是原文件本身，老存档照旧能读到（F13/F16）。
         this.highScore = highScoreStore.forDifficulty(difficulty).load();
+        this.newClearRecord = false;
         this.spawnTimer = 0;
     }
 
@@ -90,6 +101,7 @@ public class GameModelImpl implements GameModel {
         waves.clear();
         hitEffects.clear();
         spawnTimer = 0;
+        newClearRecord = false;
     }
 
     @Override
@@ -144,6 +156,23 @@ public class GameModelImpl implements GameModel {
             highScore = (int) gameState.getScore();
             highScoreStore.forDifficulty(difficulty).save(highScore);
         }
+        if (status == GameStatus.VICTORY) {
+            recordClearTime();
+        }
+    }
+
+    /**
+     * 通关时刷新本档的最短用时（F24）：只有比已存档的成绩更优才覆盖，并把"新纪录"标记立起来。
+     * 优劣次序见 {@link ClearTime#isBetterThan(ClearTime)}——"超时"盖不掉一条具体用时，
+     * 所以超时通关不算刷新纪录，玩家仍看得到自己更快的那次成绩。
+     */
+    private void recordClearTime() {
+        ClearTime run = getRunClearTime();
+        ClearTime best = clearTimeStore.forDifficulty(difficulty).load();
+        if (run.isBetterThan(best)) {
+            clearTimeStore.forDifficulty(difficulty).save(run);
+            newClearRecord = true;
+        }
     }
 
     @Override
@@ -169,6 +198,7 @@ public class GameModelImpl implements GameModel {
         waves.clear();
         hitEffects.clear();
         spawnTimer = 0;
+        newClearRecord = false;
         gameState.setStatus(GameStatus.MENU);
     }
 
@@ -507,6 +537,25 @@ public class GameModelImpl implements GameModel {
     @Override
     public int getHighScore(Difficulty difficulty) {
         return highScoreStore.forDifficulty(difficulty).load();
+    }
+
+    /** 按档位读通关最短用时，同样各记各的（F24）。 */
+    @Override
+    public ClearTime getBestClearTime(Difficulty difficulty) {
+        return clearTimeStore.forDifficulty(difficulty).load();
+    }
+
+    /** 本局用时：已到上限就是"超时"，否则按毫秒记（F24）。 */
+    @Override
+    public ClearTime getRunClearTime() {
+        return gameState.isTimedOut()
+                ? ClearTime.timeout()
+                : ClearTime.of(Math.round(gameState.getElapsedTime() * 1000));
+    }
+
+    @Override
+    public boolean isNewClearRecord() {
+        return newClearRecord;
     }
 
     @Override

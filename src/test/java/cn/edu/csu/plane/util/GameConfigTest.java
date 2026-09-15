@@ -181,6 +181,13 @@ class GameConfigTest {
                 "通关分数要是高于一个关卡线，不然一升关就通关了");
     }
 
+    /** 计时上限（F24）：默认 1 小时，且必须是个正数，否则一开局就"超时"。 */
+    @Test
+    void trackedTimeLimitIsAnHourByDefault() {
+        assertEquals(3600.0, GameConfig.MAX_TRACKED_TIME, 0.001, "计时上限默认应为 1 小时");
+        assertTrue(GameConfig.MAX_TRACKED_TIME > 0, "计时上限得是正数");
+    }
+
     /** 单发子弹伤害按火力等级递减：1 级 100%、2 级 75%、3 级 65%、4/5 级 50%。 */
     @Test
     void bulletDamageDropsAsFirePowerRises() {

@@ -1,5 +1,6 @@
 package cn.edu.csu.plane.view;
 
+import cn.edu.csu.plane.model.ClearTime;
 import cn.edu.csu.plane.util.AssetLoader;
 import cn.edu.csu.plane.util.Difficulty;
 import cn.edu.csu.plane.util.GameConfig;
@@ -18,7 +19,7 @@ import javafx.scene.text.Font;
 import java.util.function.Consumer;
 
 /**
- * 主菜单界面：标题、开始按钮、玩家飞机皮肤与子弹皮肤的图形化选择、难度选择、历史最高分。
+ * 主菜单界面：标题、开始按钮、玩家飞机皮肤与子弹皮肤的图形化选择、难度选择、最快通关记录。
  * 皮肤用图片按钮直接展示，选中项以蓝色边框高亮；难度用一行文字按钮，高亮规则相同。
  *
  * <p>开始按钮用贴图 {@code resource/pictures/menu/start.png} 当作按钮内容，
@@ -29,7 +30,7 @@ import java.util.function.Consumer;
  * 菜单上看到的机有多大，进游戏就有多大。</p>
  *
  * <p>难度默认选中普通档——与旧版手感一致的那一档。切换难度只是告诉装配层，
- * 由它去刷新最高分显示（最高分按难度分档），菜单自己不碰模型。</p>
+ * 由它去刷新最快通关记录显示（记录按难度分档），菜单自己不碰模型。</p>
  *
  * <p><b>隐藏档</b>：{@link Difficulty#TORMENT} 的按钮一开始是隐藏的（用 {@code visible=false}
  * 占住位置，所以另外三档的位置和布局不会因为解锁而跳动），只有装配层在检测到暗号后
@@ -76,7 +77,8 @@ public class MainMenuView {
     private static final Difficulty[] DIFFICULTIES = Difficulty.values();
 
     private final StackPane root = new StackPane();
-    private final Label highScoreLabel = new Label();
+    /** 本档最快通关记录：未通关 / 超时 / mm:ss.mm，由装配层按所选难度刷新（F24）。 */
+    private final Label recordLabel = new Label();
     private final Button startButton = new Button();
 
     private final Button[] planeButtons;
@@ -106,8 +108,8 @@ public class MainMenuView {
         title.setTextFill(Color.WHITE);
         title.setFont(Font.font("SansSerif", 48));
 
-        highScoreLabel.setTextFill(Color.LIGHTGRAY);
-        highScoreLabel.setFont(Font.font("SansSerif", 18));
+        recordLabel.setTextFill(Color.LIGHTGRAY);
+        recordLabel.setFont(Font.font("SansSerif", 18));
 
         setUpStartButton();
 
@@ -180,9 +182,9 @@ public class MainMenuView {
         cheatRow.setAlignment(Pos.CENTER);
 
         // 难度排在开始按钮正下方：它是开局前最先要定的事，也离窗口下沿最远——
-        // 小屏上窗口底部可能被裁掉一截，这一行不该放在最底下（最高分标签本身没有交互，压在最下面无妨）
+        // 小屏上窗口底部可能被裁掉一截，这一行不该放在最底下（通关记录标签本身没有交互，压在最下面无妨）
         VBox box = new VBox(20, title, startButton, difficultyRow, tormentHint, cheatRow,
-                planeRow, bulletRow, highScoreLabel);
+                planeRow, bulletRow, recordLabel);
         box.setAlignment(Pos.CENTER);
         root.getChildren().add(box);
 
@@ -190,6 +192,8 @@ public class MainMenuView {
         selectPlane(2);
         selectBullet(2);
         selectDifficulty(1);
+        // 记录先按"未通关"占位，装配层随后会按当前所选难度刷新
+        setClearRecord(ClearTime.notCleared());
     }
 
     /** 隐藏档在 {@link #DIFFICULTIES} 中的下标；枚举里没有隐藏档时返回 -1。 */
@@ -245,7 +249,7 @@ public class MainMenuView {
     }
 
     /**
-     * 选中某个难度并高亮，同时通知装配层刷新最高分（最高分按难度分档）。
+     * 选中某个难度并高亮，同时通知装配层刷新最快通关记录（记录按难度分档）。
      * 构造期间 {@code onDifficultyChange} 还是 null，默认选中那一次不会回调。
      */
     private void selectDifficulty(int idx) {
@@ -321,9 +325,12 @@ public class MainMenuView {
         startButton.setOnAction(event -> onStart.run());
     }
 
-    /** 刷新历史最高分显示。 */
-    public void setHighScore(int score) {
-        highScoreLabel.setText("最高分：" + score);
+    /**
+     * 刷新本档最快通关记录显示：未通关 / 超时 / {@code mm:ss.mm}（F24）。
+     * 由装配层按当前所选难度取记录后调用。
+     */
+    public void setClearRecord(ClearTime record) {
+        recordLabel.setText("最快通关：" + record.format());
     }
 
     /** 返回选中的飞机皮肤文件名（plane1~plane4）。 */
@@ -341,7 +348,7 @@ public class MainMenuView {
         return DIFFICULTIES[selectedDifficulty];
     }
 
-    /** 注册难度切换回调，由装配层绑定到"刷新最高分显示"。 */
+    /** 注册难度切换回调，由装配层绑定到"刷新最快通关记录显示"。 */
     public void setOnDifficultyChange(Consumer<Difficulty> onChange) {
         this.onDifficultyChange = onChange;
     }

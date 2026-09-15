@@ -415,6 +415,13 @@ public final class GameConfig {
     /** 单颗炸弹（一条冲击波）的得分上限：封顶 1 关的分，防止高密度下炸弹连跳多关。 */
     public static final int BOMB_WAVE_SCORE_CAP = getInt("bomb.wave.score.cap", SCORE_PER_LEVEL);
 
+    // ---------- 计时（F24） ----------
+    /**
+     * 计时上限（秒）：达到它就不再计时，界面把用时显示为"超时"，此时通关的记录也记为"超时"
+     * （而不是一个天文数字）。默认 1 小时。
+     */
+    public static final double MAX_TRACKED_TIME = getDouble("time.max.tracked", 3600.0);
+
     // ---------- 背景滚动 ----------
     /** 背景纵向循环滚动速度（像素/秒），模拟飞机向前飞行。 */
     public static final double BACKGROUND_SCROLL_SPEED = getDouble("background.scroll.speed", 40.0);

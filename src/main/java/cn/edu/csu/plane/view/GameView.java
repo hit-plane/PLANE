@@ -2,6 +2,7 @@ package cn.edu.csu.plane.view;
 
 import cn.edu.csu.plane.model.BombWave;
 import cn.edu.csu.plane.model.Bullet;
+import cn.edu.csu.plane.model.ClearTime;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.EnemyType;
 import cn.edu.csu.plane.model.GameStatus;
@@ -134,10 +135,14 @@ public class GameView {
         playerBulletImage = SkinCatalog.loadBullet(name, BULLET_H);
     }
 
-    /** 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → 受击特效 → HUD（HUD 里带当前难度）。 */
+    /**
+     * 渲染一帧：背景 → 道具 → 敌机 → 子弹 → 玩家 → 冲击波 → 受击特效 → HUD
+     * （HUD 里带当前难度与本局用时）。
+     */
     public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
                        List<BombWave> waves, List<HitEffect> hitEffects, int score, int level,
-                       int highScore, GameStatus status, Difficulty difficulty, double deltaTime) {
+                       int highScore, GameStatus status, Difficulty difficulty,
+                       double elapsedTime, double deltaTime) {
         // 检测关卡变化（升级或重开新局），触发过渡动画
         if (lastLevel != -1 && level != lastLevel) {
             transitionLevel = level;
@@ -157,7 +162,7 @@ public class GameView {
         drawWaves(waves);
         drawHitEffects(hitEffects);
         hud.draw(score, level, highScore, player.getHealth(), player.getMaxHealth(), player.getFirePower(),
-                difficulty.getLabel());
+                difficulty.getLabel(), elapsedTime);
 
         // 关卡过渡动画（覆盖在最上层）
         if (levelTransitionTimer > 0) {
@@ -169,10 +174,14 @@ public class GameView {
         }
     }
 
-    /** 一局结束：把终局状态、本局得分与本局难度抛给装配层，由其弹出结算面板。 */
-    public void showGameOver(GameStatus status, long score, Difficulty difficulty) {
+    /**
+     * 一局结束：把终局状态、本局得分、本局难度、本局用时与"是否刷新纪录"
+     * 抛给装配层，由其弹出结算面板。
+     */
+    public void showGameOver(GameStatus status, long score, Difficulty difficulty,
+                             ClearTime runClearTime, boolean newClearRecord) {
         if (gameOverHandler != null) {
-            gameOverHandler.onGameOver(status, (int) score, difficulty);
+            gameOverHandler.onGameOver(status, (int) score, difficulty, runClearTime, newClearRecord);
         }
     }
 
@@ -182,7 +191,8 @@ public class GameView {
 
     @FunctionalInterface
     public interface GameOverHandler {
-        void onGameOver(GameStatus status, int score, Difficulty difficulty);
+        void onGameOver(GameStatus status, int score, Difficulty difficulty,
+                        ClearTime runClearTime, boolean newClearRecord);
     }
 
     /**

@@ -61,6 +61,21 @@ public interface GameModel {
     /** 返回指定难度的历史最高分（F16）。主菜单切换档位时按所选档位取。 */
     int getHighScore(Difficulty difficulty);
 
+    /**
+     * 返回指定难度的通关最短用时记录（F24）。三态：未通关 / 超时 / 具体用时。
+     * 主菜单切换档位时按所选档位取，与最高分一样各档各记各的。
+     */
+    ClearTime getBestClearTime(Difficulty difficulty);
+
+    /**
+     * 返回本局用时（F24），结果界面据此显示本局成绩；未通关的局同样可用。
+     * 已达计时上限时返回"超时"。结算后本局不再推进，所以这个值会定格。
+     */
+    ClearTime getRunClearTime();
+
+    /** 刚结束的这一局是否刷新了本档的通关最短用时（结算界面据此提示"新纪录"）。 */
+    boolean isNewClearRecord();
+
     /** 返回当前难度（F16），默认普通档。 */
     Difficulty getDifficulty();
 

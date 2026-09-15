@@ -18,9 +18,6 @@ import java.nio.file.Path;
 public class HighScoreStore {
 
     private static final String DEFAULT_FILE_NAME = "highscore.txt";
-    /** 派生档位存档时的文件名主干与后缀：highscore + _easy/_hard + .txt。 */
-    private static final String BASE_NAME = "highscore";
-    private static final String EXTENSION = ".txt";
 
     private final Path file;
 
@@ -45,26 +42,15 @@ public class HighScoreStore {
         if (difficulty == Difficulty.NORMAL) {
             return this;
         }
-        return new HighScoreStore(siblingPath(suffixOf(difficulty)));
+        return new HighScoreStore(DifficultyFile.forDifficulty(file, difficulty));
     }
 
-    /** 档位后缀：简单 easy、困难 hard、折磨 torment；普通不走派生，不该问到这里。 */
-    private static String suffixOf(Difficulty difficulty) {
-        return switch (difficulty) {
-            case EASY -> "easy";
-            case HARD -> "hard";
-            case TORMENT -> "torment";
-            case NORMAL -> throw new IllegalArgumentException("普通档复用原存档，不该派生新文件");
-        };
-    }
-
-    /** 在扩展名前插入后缀：{@code …/highscore.txt} → {@code …/highscore_easy.txt}。 */
-    private Path siblingPath(String suffix) {
-        String name = file.getFileName().toString();
-        String stem = name.endsWith(EXTENSION) ? name.substring(0, name.length() - EXTENSION.length()) : name;
-        String derived = stem + "_" + suffix + EXTENSION;
-        Path parent = file.getParent();
-        return (parent == null) ? Path.of(derived) : parent.resolve(derived);
+    /**
+     * 本存档的文件路径。通关用时存档据此放到同一个目录下，
+     * 测试注入临时目录时两个存档一起进去，不会污染工作目录。
+     */
+    Path getFile() {
+        return file;
     }
 
     /** 读历史最高分；没有记录或存档损坏都返回 0。 */

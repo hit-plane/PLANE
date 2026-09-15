@@ -689,6 +689,102 @@ class GameModelImplTest {
         assertEquals(GameStatus.GAME_OVER, fresh.getStatus(), "同帧竞争时应判失败");
     }
 
+    // ---------------- 通关用时（F24） ----------------
+
+    /** 用给定用时通关一局：先把计时推到位，再攒够通关分走一帧结算。 */
+    private void clearVictoryAfter(GameModelImpl target, double seconds) {
+        target.update(seconds);
+        target.addScore(GameConfig.VICTORY_SCORE);
+        target.update(0.016);
+        assertEquals(GameStatus.VICTORY, target.getStatus(), "前置条件：这一局应通关");
+    }
+
+    @Test
+    void victoryRecordsClearTime() {
+        ClearTimeStore store = ClearTimeStore.beside(tempDir.resolve("highscore.txt"));
+        GameModelImpl fresh = modelWithStore(new HighScoreStore(tempDir.resolve("highscore.txt")));
+
+        clearVictoryAfter(fresh, 20);
+
+        assertEquals(20_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0,
+                "通关用时该按毫秒记下来（20 秒 + 结算那一帧）");
+        assertTrue(fresh.isNewClearRecord(), "第一次通关自然是新纪录");
+        assertEquals(20_016.0, store.load().getMillis(), 2.0, "成绩该落盘");
+    }
+
+    /** 只有更快的成绩才覆盖记录；更慢（或超时）的一局不写盘、也不算新纪录。 */
+    @Test
+    void onlyFasterClearTimeOverwrites() {
+        GameModelImpl fresh = modelWithStore(new HighScoreStore(tempDir.resolve("highscore.txt")));
+
+        clearVictoryAfter(fresh, 30);
+        assertEquals(30_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0);
+
+        fresh.initGame();
+        clearVictoryAfter(fresh, 20);
+        assertEquals(20_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0,
+                "更快的成绩该覆盖");
+        assertTrue(fresh.isNewClearRecord(), "刷新纪录了");
+
+        fresh.initGame();
+        clearVictoryAfter(fresh, 40);
+        assertEquals(20_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0,
+                "更慢的成绩不该覆盖");
+        assertFalse(fresh.isNewClearRecord(), "没刷新纪录时不该标新纪录");
+    }
+
+    /** 超时通关（用时到上限）记为"超时"，且盖不掉一条已有的具体用时。 */
+    @Test
+    void timeoutClearIsRecordedAsTimeoutAndKeepsBetterTime() {
+        GameModelImpl fresh = modelWithStore(new HighScoreStore(tempDir.resolve("highscore.txt")));
+
+        fresh.initGame();
+        clearVictoryAfter(fresh, GameConfig.MAX_TRACKED_TIME + 10);
+        assertTrue(fresh.getBestClearTime(Difficulty.NORMAL).isTimeout(), "超时通关该记为超时");
+        assertTrue(fresh.isNewClearRecord(), "从没通关过，超时也算第一次成绩");
+        assertTrue(fresh.getRunClearTime().isTimeout(), "本局用时也该是超时");
+
+        fresh.initGame();
+        clearVictoryAfter(fresh, 30);
+        assertEquals(30_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0,
+                "具体用时该盖掉超时");
+
+        fresh.initGame();
+        clearVictoryAfter(fresh, GameConfig.MAX_TRACKED_TIME + 10);
+        assertEquals(30_016.0, fresh.getBestClearTime(Difficulty.NORMAL).getMillis(), 2.0,
+                "超时不该盖掉一条更快的具体用时");
+        assertFalse(fresh.isNewClearRecord());
+    }
+
+    /** 通关用时按难度分档，与最高分一样各记各的。 */
+    @Test
+    void clearTimeIsKeptPerDifficulty() {
+        GameModelImpl fresh = modelWithStore(new HighScoreStore(tempDir.resolve("highscore.txt")));
+
+        fresh.setDifficulty(Difficulty.EASY);
+        fresh.initGame();
+        clearVictoryAfter(fresh, 10);
+
+        assertEquals(10_016.0, fresh.getBestClearTime(Difficulty.EASY).getMillis(), 2.0);
+        assertFalse(fresh.getBestClearTime(Difficulty.NORMAL).isCleared(),
+                "普通档不该被简单档的成绩污染");
+        assertFalse(fresh.getBestClearTime(Difficulty.HARD).isCleared());
+    }
+
+    /** 阵亡不是通关，不该记用时。 */
+    @Test
+    void gameOverDoesNotRecordClearTime() {
+        GameModelImpl fresh = modelWithStore(new HighScoreStore(tempDir.resolve("highscore.txt")));
+
+        fresh.update(15);
+        killPlayer(fresh);
+
+        assertEquals(GameStatus.GAME_OVER, fresh.getStatus());
+        assertFalse(fresh.getBestClearTime(Difficulty.NORMAL).isCleared(), "没通关就没有用时记录");
+        assertFalse(fresh.isNewClearRecord());
+        assertEquals(15_016.0, fresh.getRunClearTime().getMillis(), 2.0, "本局用时仍然可用，供结算显示");
+    }
+
     // ---------------- 难度（F16） ----------------
 
     /** 默认就是普通档：不设难度时，一切与加难度之前一样。 */

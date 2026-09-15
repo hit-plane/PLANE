@@ -51,9 +51,21 @@ public class GameState {
         }
     }
 
-    /** 推进本局已进行时长。 */
+    /**
+     * 推进本局已进行时长，封顶在 {@link GameConfig#MAX_TRACKED_TIME}：
+     * 到达上限后不再累加，界面据此显示"超时"（F24）。暂停时本方法根本不会被调到
+     * （模型在非 PLAYING 态整帧提前返回），所以暂停的时长天然不计入。
+     */
     public void advanceTime(double deltaTime) {
-        this.elapsedTime += deltaTime;
+        if (elapsedTime >= GameConfig.MAX_TRACKED_TIME) {
+            return;
+        }
+        this.elapsedTime = Math.min(this.elapsedTime + deltaTime, GameConfig.MAX_TRACKED_TIME);
+    }
+
+    /** 本局是否已到计时上限（超过一小时不再计时）。 */
+    public boolean isTimedOut() {
+        return elapsedTime >= GameConfig.MAX_TRACKED_TIME;
     }
 
     public GameStatus getStatus() { return status; }

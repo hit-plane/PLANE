@@ -143,11 +143,12 @@ public class GameController {
         stop();
     }
 
-    /** 每帧渲染画面：把渲染所需的本局数据（含当前难度）一并交给视图。 */
+    /** 每帧渲染画面：把渲染所需的本局数据（含当前难度与本局用时）一并交给视图。 */
     public void render() {
         view.render(model.getPlayer(), model.getEnemies(), model.getBullets(), model.getItems(),
                 model.getWaves(), model.getHitEffects(), model.getScore(), model.getLevel(),
-                model.getHighScore(), model.getStatus(), model.getDifficulty(), lastDelta);
+                model.getHighScore(), model.getStatus(), model.getDifficulty(),
+                model.getElapsedTime(), lastDelta);
     }
 
     /** 一局是否已经结束。通关与阵亡都是终局，都得弹结算。 */
@@ -155,9 +156,10 @@ public class GameController {
         return status == GameStatus.GAME_OVER || status == GameStatus.VICTORY;
     }
 
-    /** 一局结束：把终局状态、本局得分与本局难度交给视图展示结算。 */
+    /** 一局结束：把终局状态、本局得分、本局难度、本局用时与"是否刷新纪录"交给视图展示结算。 */
     private void onRunOver() {
-        view.showGameOver(model.getStatus(), model.getScore(), model.getDifficulty());
+        view.showGameOver(model.getStatus(), model.getScore(), model.getDifficulty(),
+                model.getRunClearTime(), model.isNewClearRecord());
     }
 
     /** 暂停键位：Esc，按一下暂停、再按一下恢复（键位在此绑定）。 */

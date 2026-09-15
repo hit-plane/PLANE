@@ -2,6 +2,7 @@ package cn.edu.csu.plane.controller;
 
 import cn.edu.csu.plane.model.BombWave;
 import cn.edu.csu.plane.model.Bullet;
+import cn.edu.csu.plane.model.ClearTime;
 import cn.edu.csu.plane.model.Enemy;
 import cn.edu.csu.plane.model.GameModel;
 import cn.edu.csu.plane.model.GameStatus;
@@ -273,6 +274,23 @@ class GameControllerTest {
         assertEquals(Difficulty.HARD, view.lastShownDifficulty, "结算面板该显示本局难度");
     }
 
+    /** 用时（F24）也要一路传到视图：HUD 每帧实时计时，结算显示本局用时与是否刷新纪录。 */
+    @Test
+    void clearTimeIsForwardedToView() {
+        model.setElapsedTime(83.45);
+        controller.start();
+
+        step();
+        assertEquals(83.45, view.lastRenderedElapsed, 1e-9, "每帧渲染该带上本局已进行秒数");
+
+        model.setRunClearTime(ClearTime.of(83_450));
+        model.setNewClearRecord(true);
+        model.setStatus(GameStatus.VICTORY);
+        step();
+        assertEquals(ClearTime.of(83_450), view.lastShownClearTime, "结算该显示本局用时");
+        assertTrue(view.lastShownNewRecord, "结算该带上是否刷新纪录");
+    }
+
     @Test
     void gameOver_shouldShowResultExactlyOnce() {
         // 验证点：阵亡后结算只弹一次，不能每帧都弹
@@ -432,6 +450,9 @@ class GameControllerTest {
         private int highScore;
         private Difficulty difficulty = Difficulty.NORMAL;
         private boolean cheatEnabled;
+        private double elapsedTime;
+        private ClearTime runClearTime = ClearTime.notCleared();
+        private boolean newClearRecord;
 
         private int initGameCount;
         private int updateCount;
@@ -449,6 +470,18 @@ class GameControllerTest {
 
         void setScore(int score) {
             this.score = score;
+        }
+
+        void setElapsedTime(double elapsedTime) {
+            this.elapsedTime = elapsedTime;
+        }
+
+        void setRunClearTime(ClearTime runClearTime) {
+            this.runClearTime = runClearTime;
+        }
+
+        void setNewClearRecord(boolean newClearRecord) {
+            this.newClearRecord = newClearRecord;
         }
 
         @Override
@@ -571,8 +604,23 @@ class GameControllerTest {
         }
 
         @Override
+        public ClearTime getBestClearTime(Difficulty difficulty) {
+            return ClearTime.notCleared();
+        }
+
+        @Override
+        public ClearTime getRunClearTime() {
+            return runClearTime;
+        }
+
+        @Override
+        public boolean isNewClearRecord() {
+            return newClearRecord;
+        }
+
+        @Override
         public double getElapsedTime() {
-            return 0;
+            return elapsedTime;
         }
 
         @Override
@@ -581,14 +629,17 @@ class GameControllerTest {
         }
     }
 
-    /** 假视图：只记录被渲染了几次、渲染的是谁、结算弹了几次与得分。 */
+    /** 假视图：只记录被渲染了几次、渲染的是谁、结算弹了几次与得分用时。 */
     private static final class RecordingView extends GameView {
 
         private int renderCount;
         private int showGameOverCount;
         private long lastShownScore;
         private Difficulty lastShownDifficulty;
+        private ClearTime lastShownClearTime;
+        private boolean lastShownNewRecord;
         private Difficulty lastRenderedDifficulty;
+        private double lastRenderedElapsed;
         private Player lastPlayer;
         private List<Enemy> lastEnemies;
         private List<Bullet> lastBullets;
@@ -598,7 +649,8 @@ class GameControllerTest {
         @Override
         public void render(Player player, List<Enemy> enemies, List<Bullet> bullets, List<Item> items,
                            List<BombWave> waves, List<HitEffect> hitEffects, int score, int level,
-                           int highScore, GameStatus status, Difficulty difficulty, double deltaTime) {
+                           int highScore, GameStatus status, Difficulty difficulty,
+                           double elapsedTime, double deltaTime) {
             renderCount++;
             lastPlayer = player;
             lastEnemies = enemies;
@@ -606,13 +658,17 @@ class GameControllerTest {
             lastItems = items;
             lastHitEffects = hitEffects;
             lastRenderedDifficulty = difficulty;
+            lastRenderedElapsed = elapsedTime;
         }
 
         @Override
-        public void showGameOver(GameStatus status, long score, Difficulty difficulty) {
+        public void showGameOver(GameStatus status, long score, Difficulty difficulty,
+                                 ClearTime runClearTime, boolean newClearRecord) {
             showGameOverCount++;
             lastShownScore = score;
             lastShownDifficulty = difficulty;
+            lastShownClearTime = runClearTime;
+            lastShownNewRecord = newClearRecord;
         }
     }
 

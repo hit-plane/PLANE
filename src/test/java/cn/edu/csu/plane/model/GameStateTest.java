@@ -100,4 +100,20 @@ class GameStateTest {
         state.advanceTime(0.016);
         assertEquals(0.032, state.getElapsedTime(), 0.0001);
     }
+
+    /** 计时封顶（F24）：超过一小时后不再累计，此后一律按"超时"看待。 */
+    @Test
+    void elapsedTimeIsCappedAtConfiguredLimit() {
+        state.advanceTime(GameConfig.MAX_TRACKED_TIME - 1);
+        assertFalse(state.isTimedOut(), "还没到上限时不算超时");
+
+        state.advanceTime(1);
+        assertEquals(GameConfig.MAX_TRACKED_TIME, state.getElapsedTime(), 0.0001);
+        assertTrue(state.isTimedOut());
+
+        state.advanceTime(100);
+        assertEquals(GameConfig.MAX_TRACKED_TIME, state.getElapsedTime(), 0.0001,
+                "到了上限就不再计时");
+        assertTrue(state.isTimedOut());
+    }
 }

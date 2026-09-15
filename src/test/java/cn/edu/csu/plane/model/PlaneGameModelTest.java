@@ -3,20 +3,30 @@ package cn.edu.csu.plane.model;
 import cn.edu.csu.plane.util.GameConfig;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import java.nio.file.Path;
+import java.util.Random;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * GameModelImpl 的 Model 层核心业务单元测试。
  * 仅通过 GameModel 公共接口进行测试，不依赖 JavaFX 界面。
+ *
+ * <p>存档指到临时目录：本类里有几局会走到通关/阵亡，用默认存档会往工作目录写
+ * highscore.txt 与 besttime.txt，把真实记录冲掉。</p>
  */
 class PlaneGameModelTest {
+
+    @TempDir
+    Path tempDir;
 
     private GameModel model;
 
     @BeforeEach
     void setUp() {
-        model = new GameModelImpl();
+        model = new GameModelImpl(new Random(0), new HighScoreStore(tempDir.resolve("highscore.txt")));
         model.initGame();
     }
 

@@ -131,31 +131,31 @@ public class PlaneApp extends Application {
             pauseView.getNode().setVisible(false);
             controller.resume();
         });
-        // 最高分按难度分档：每次回到菜单都按当前所选档位显示，切换难度也跟着刷新。
-        Runnable refreshMenuHighScore =
-                () -> menuView.setHighScore(model.getHighScore(menuView.getSelectedDifficulty()));
+        // 最快通关记录按难度分档：每次回到菜单都按当前所选档位显示，切换难度也跟着刷新。
+        Runnable refreshMenuRecord =
+                () -> menuView.setClearRecord(model.getBestClearTime(menuView.getSelectedDifficulty()));
 
         pauseView.setOnQuit(() -> {
             pauseView.getNode().setVisible(false);
-            refreshMenuHighScore.run();
+            refreshMenuRecord.run();
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
         });
 
-        // 一局结束：弹出结算面板
-        gameView.setGameOverHandler((status, score, difficulty) -> {
-            gameOverView.show(status, score, difficulty);
+        // 一局结束：弹出结算面板（含本局用时与"是否刷新纪录"）
+        gameView.setGameOverHandler((status, score, difficulty, runClearTime, newClearRecord) -> {
+            gameOverView.show(status, score, difficulty, runClearTime, newClearRecord);
             gameOverView.getNode().setVisible(true);
         });
 
         // 主菜单：按所选皮肤与难度开始游戏。难度要在 start() 之前写进模型，
         // start() 内部会 initGame()，生成敌机时读的就是这个值。
-        menuView.setOnDifficultyChange(difficulty -> refreshMenuHighScore.run());
+        menuView.setOnDifficultyChange(difficulty -> refreshMenuRecord.run());
         // 作弊开关（暗号解锁后出现）：切一下就写进模型并重算玩家机，开局前定好即可；
         // 模型侧对"未开局"状态是安全的（只是重建本档数值，不影响菜单态）。
         menuView.setOnCheatChange(cheat -> model.setCheatEnabled(cheat));
-        refreshMenuHighScore.run();
+        refreshMenuRecord.run();
         menuView.setOnStart(() -> {
             gameView.setPlayerSkin(menuView.getSelectedPlaneSkin());
             gameView.setPlayerBulletSkin(menuView.getSelectedBulletSkin());
@@ -173,7 +173,7 @@ public class PlaneApp extends Application {
         secretCodeHandler = event -> {
             if (menuShown && handleSecretKey(event.getCode())) {
                 menuView.unlockTorment();
-                refreshMenuHighScore.run();
+                refreshMenuRecord.run();
             }
         };
         attachSecretCode(scene);
@@ -185,7 +185,7 @@ public class PlaneApp extends Application {
         });
         gameOverView.setOnMenu(() -> {
             gameOverView.getNode().setVisible(false);
-            refreshMenuHighScore.run();
+            refreshMenuRecord.run();
             menuView.getNode().setVisible(true);
             attachSecretCode(scene);
             controller.toMenu();
