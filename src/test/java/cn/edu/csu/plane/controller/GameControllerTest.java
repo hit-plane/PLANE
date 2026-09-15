@@ -400,9 +400,9 @@ class GameControllerTest {
     // ========== 8. 埋点常量与生产帧循环 ==========
 
     @Test
-    void pauseKey_shouldBeP() {
-        // 验证点：F12 条目规定暂停键为 P
-        assertEquals(KeyCode.P, GameController.PAUSE_KEY, "F12 条目规定暂停键为 P");
+    void pauseKey_shouldBeEscape() {
+        // 验证点：暂停键为 Esc，按一下暂停、再按一下恢复
+        assertEquals(KeyCode.ESCAPE, GameController.PAUSE_KEY, "暂停键应为 Esc");
     }
 
     @Test

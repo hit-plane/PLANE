@@ -119,8 +119,8 @@ class InputHandlerTest {
     void unboundKey_shouldNotClearHeldDirection() {
         // 验证点：按无关键不能把正在按住的方向抹掉（切输入法、点暂停键时战机不能停）
         input.handleKeyPressed(KeyCode.D);
-        input.handleKeyPressed(KeyCode.P);
-        input.handleKeyReleased(KeyCode.P);
+        input.handleKeyPressed(KeyCode.ESCAPE);
+        input.handleKeyReleased(KeyCode.ESCAPE);
         assertEquals(1.0, input.getMoveX(), "按无关键不该影响已按住的方向键");
     }
 

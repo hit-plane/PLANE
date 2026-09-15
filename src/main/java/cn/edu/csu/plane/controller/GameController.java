@@ -160,8 +160,8 @@ public class GameController {
         view.showGameOver(model.getStatus(), model.getScore(), model.getDifficulty());
     }
 
-    /** 暂停键位（F12 条目规定为 P 键，键位在此绑定）。 */
-    public static final javafx.scene.input.KeyCode PAUSE_KEY = javafx.scene.input.KeyCode.P;
+    /** 暂停键位：Esc，按一下暂停、再按一下恢复（键位在此绑定）。 */
+    public static final javafx.scene.input.KeyCode PAUSE_KEY = javafx.scene.input.KeyCode.ESCAPE;
 
     InputHandler getInput() {
         return input;

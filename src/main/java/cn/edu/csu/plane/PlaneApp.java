@@ -92,7 +92,7 @@ public class PlaneApp extends Application {
 
         // 必须让 controller 绑定它自己持有的输入实例：InputHandler 的按键状态是实例字段。
         controller.attachInput(scene);
-        // 暂停键（P）：用 addEventHandler 追加，避免顶掉 InputHandler 装的移动键监听。
+        // 暂停键（Esc）：用 addEventHandler 追加，避免顶掉 InputHandler 装的移动键监听。
         scene.addEventHandler(KeyEvent.KEY_PRESSED, event -> {
             if (event.getCode() == GameController.PAUSE_KEY) {
                 controller.togglePause();
