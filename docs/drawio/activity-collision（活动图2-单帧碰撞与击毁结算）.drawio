@@ -174,7 +174,7 @@
             <mxGeometry height="746" width="8" x="440" y="205" as="geometry" />
           </mxCell>
         </UserObject>
-        <UserObject label="" plantUmlData="{&#xa;  &quot;data&quot;: &quot;@startuml activity-battle-loop\nskinparam defaultFontName \&quot;Noto Sans CJK SC\&quot;\ntitle 活动图1：一局战斗生命周期\nstart\n:开始游戏，初始化战场（F01）\\n分数归零、玩家满血、清空场上实体;\nrepeat\n  if (玩家按 Esc 键？) then (是)\n    :暂停，冻结敌机/子弹/道具运动与计分（F12）;\n    :等待玩家再次按 Esc 恢复;\n  else (否)\n  endif\n  :系统定时器推进一帧（F03/F04/F05）\\n生成敌机、敌机移动射击、双方子弹飞行;\n  if (玩家子弹命中敌机？) then (是)\n    :敌机扣血；血量归零则销毁、计分（F08）\\n并按当前关卡的掉落概率（第 1 关 50%）掉落道具（F10）;\n  else (否)\n  endif\n  if (玩家被敌弹命中或与敌机碰撞？) then (是)\n    :玩家扣血，或由护盾抵消一次（F07）\\n受击后进入 1 秒无敌;\n  else (否)\n  endif\nrepeat while (玩家血量归零？) is (否，回到帧循环) not (是)\n:游戏结束（F09）\\n冻结画面、显示本局得分、更新最高分（F13）;\nstop\n@enduml\n&quot;,&#xa;  &quot;config&quot;: null&#xa;}" id="0gnnCN16CAb7R19-QBHD-35">
+        <UserObject label="" plantUmlData="{&#xa;  &quot;data&quot;: &quot;@startuml activity-battle-loop\nskinparam defaultFontName \&quot;Noto Sans CJK SC\&quot;\ntitle 活动图1：一局战斗生命周期\nstart\n:开始游戏，初始化战场（F01）\\n分数归零、玩家满血、清空场上实体;\nrepeat\n  if (玩家按 Esc 键？) then (是)\n    :暂停，冻结敌机/子弹/道具运动与计分（F12）;\n    :等待玩家再次按 Esc 恢复;\n  else (否)\n  endif\n  :系统定时器推进一帧（F03/F04/F05/F24/F25）\\n生成敌机、敌机移动射击、双方子弹飞行、本局计时、刷新信息带;\n  if (玩家子弹命中敌机？) then (是)\n    :敌机扣血；血量归零则销毁、计分（F08）\\n并按当前关卡的掉落概率（第 1 关 50%）掉落道具（F10）;\n  else (否)\n  endif\n  if (玩家被敌弹命中或与敌机碰撞？) then (是)\n    :玩家扣血，或由护盾抵消一次（F07）\\n受击后进入 1 秒无敌;\n  else (否)\n  endif\nrepeat while (玩家血量归零？) is (否，回到帧循环) not (是)\n:游戏结束（F09）\\n冻结画面、显示本局得分、更新最高分（F13）;\nstop\n@enduml\n&quot;,&#xa;  &quot;config&quot;: null&#xa;}" id="0gnnCN16CAb7R19-QBHD-35">
           <mxCell connectable="0" parent="1" style="group;transparentBounds=1;editIcon=1;lockedGroup=0;groupPadding=10;" vertex="1">
             <mxGeometry as="geometry" />
           </mxCell>
@@ -268,7 +268,7 @@
             </mxGeometry>
           </mxCell>
         </UserObject>
-        <UserObject label="系统定时器推进一帧（F03/F04/F05）&#xa;生成敌机、敌机移动射击、双方子弹飞行" plantUmlId="action_17" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="系统定时器推进一帧（F03/F04/F05）&#xa;生成敌机、敌机移动射击、双方子弹飞行" id="0gnnCN16CAb7R19-QBHD-49">
+        <UserObject label="系统定时器推进一帧（F03/F04/F05/F24/F25）&#xa;生成敌机、敌机移动射击、双方子弹飞行、本局计时、刷新信息带" plantUmlId="action_17" plantUmlBaseStyle="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" plantUmlBaseValue="系统定时器推进一帧（F03/F04/F05/F24/F25）&#xa;生成敌机、敌机移动射击、双方子弹飞行、本局计时、刷新信息带" id="0gnnCN16CAb7R19-QBHD-49">
           <mxCell parent="0gnnCN16CAb7R19-QBHD-35" style="rounded=1;absoluteArcSize=1;arcSize=25;fillColor=#F1F1F1;strokeColor=#181818;strokeWidth=0.5;whiteSpace=wrap;fontSize=12;align=left;spacingLeft=6;fontFamily=Noto Sans CJK SC;" vertex="1">
             <mxGeometry height="36" width="236" x="277" y="1394" as="geometry" />
           </mxCell>
