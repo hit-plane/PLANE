@@ -82,6 +82,77 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!--
+                打可运行 fat jar：把 JavaFX（含当前平台的原生库）与主程序打进同一个 jar。
+                主类是 Launcher 而非 PlaneApp，原因见该类注释（继承 Application 会触发
+                JavaFX 启动器的 module-path 检查）。产物即默认构件 target/plane-<版本>.jar，
+                用 java -jar 直接启动。
+
+                必须声明在 assembly 之前：两者都绑 package 阶段，同阶段按声明顺序执行，
+                assembly 要打进去的正是 shade 产出的这个 jar。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.0</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <mainClass>cn.edu.csu.plane.Launcher</mainClass>
+                                </transformer>
+                                <!-- 保留各依赖的 META-INF/services，合并而不是覆盖 -->
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <!-- 多模块的 module-info 合并后会冲突，且走 classpath 用不到 -->
+                                        <exclude>module-info.class</exclude>
+                                        <!-- 签名文件留着会让合并后的 jar 校验失败 -->
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!--
+                发行包：上面那个 fat jar + resource/ + 启动脚本，打成一个解压即玩的 zip。
+                贴图与音效不进 jar 是刻意的——AssetLoader / SoundPlayer 按相对路径
+                resource/pictures、resource/sounds 读文件，必须与 jar 同级放在工作目录里。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <version>3.7.1</version>
+                <executions>
+                    <execution>
+                        <id>dist</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/assembly/dist.xml</descriptor>
+                            </descriptors>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
     </plugins>
     </build>
 

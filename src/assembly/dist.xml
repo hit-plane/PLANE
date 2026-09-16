@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<assembly xmlns="http://maven.apache.org/ASSEMBLY/2.1.1"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/ASSEMBLY/2.1.1 http://maven.apache.org/xsd/assembly-2.1.1.xsd">
+    <id>dist</id>
+    <formats>
+        <format>zip</format>
+    </formats>
+    <includeBaseDirectory>true</includeBaseDirectory>
+    <baseDirectory>plane-${project.version}</baseDirectory>
+
+    <files>
+        <!-- 改成固定名 plane.jar，启动脚本与文档就不必跟着版本号走 -->
+        <file>
+            <source>${project.build.directory}/${project.build.finalName}.jar</source>
+            <outputDirectory>/</outputDirectory>
+            <destName>plane.jar</destName>
+        </file>
+        <file>
+            <source>src/assembly/run.bat</source>
+            <outputDirectory>/</outputDirectory>
+        </file>
+    </files>
+
+    <fileSets>
+        <!-- 贴图与音效刻意留在 jar 外：AssetLoader / SoundPlayer 按相对路径读文件，
+             必须与 plane.jar 同级。运行期生成的 highscore*.txt / besttime*.txt 也落在这里。 -->
+        <fileSet>
+            <directory>resource</directory>
+            <outputDirectory>resource</outputDirectory>
+        </fileSet>
+    </fileSets>
+</assembly>

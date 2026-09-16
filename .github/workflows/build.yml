@@ -1,0 +1,58 @@
+name: build
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    # 必须跑在 Windows 上，两个理由：
+    # 1) GameControllerTest / MainMenuViewTest 会调 Platform.startup()，需要图形环境。
+    #    Windows runner 自带桌面会话，不必像 Linux 那样额外架 Xvfb。
+    # 2) fat jar 打进的是构建平台的原生库（javafx-*-win.jar），发行包必须在目标平台构建——
+    #    在 Linux 上构建出来的 jar 拿到 Windows 是跑不起来的。
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      # verify 已包含 package：编译 → 跑 261 个单测 → JaCoCo 报告 → shade 出 fat jar → 打发行 zip
+      - name: Build, test and package
+        run: mvn -B clean verify
+
+      - name: Upload distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: plane-dist
+          path: target/plane-*-dist.zip
+          if-no-files-found: error
+
+      # 测试失败时也要拿到覆盖率与用例报告，便于定位，故 always()
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco
+          if-no-files-found: warn
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: target/surefire-reports
+          if-no-files-found: warn

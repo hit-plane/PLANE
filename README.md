@@ -39,6 +39,45 @@ mvn clean package     # 打包
 
 （`view` 层覆盖率天然偏低——JavaFX 渲染路径难以脱离界面纯单测，已通过运行联调补验。）
 
+## 打包与发行
+
+```bash
+mvn clean package
+```
+
+除覆盖率报告外产出两样东西：
+
+| 产物 | 说明 |
+| --- | --- |
+| `target/plane-1.0-SNAPSHOT.jar` | **可运行 fat jar**：JavaFX（含当前平台原生库）与主程序已并进同一个 jar，`java -jar` 直接启动 |
+| `target/plane-1.0-SNAPSHOT-dist.zip` | **发行包**：解压即玩，内含 `plane.jar`、`resource/` 与 `run.bat` |
+
+发行包解压后**双击 `run.bat`** 即可。解压目录结构：
+
+```
+plane-1.0-SNAPSHOT/
+├── plane.jar      可运行 jar
+├── resource/      贴图与音效
+└── run.bat        双击启动
+```
+
+> **工作目录这事在发行包里同样成立**：`resource/` 必须与 `plane.jar` 同级。`run.bat` 内已用
+> `cd /d "%~dp0"` 切到自身所在目录，所以双击就对；若手动敲 `java -jar`，务必先 `cd` 到解压目录，
+> 否则会退回占位画法并静音（控制台可见"找不到贴图"）。运行期生成的 `highscore*.txt` /
+> `besttime*.txt` 也落在该目录。
+
+> **产物绑定构建平台**：JavaFX 原生库按构建平台打进 jar，在 Windows 上构建的包只能在 Windows 上跑；
+> 要出其他平台的包必须在该平台上构建。运行需已装 JDK 17（`run.bat` 会先检查并提示）。
+
+## 持续集成
+
+[`.github/workflows/build.yml`](.github/workflows/build.yml)：推送到 `master`/`main`、提 PR
+或手动触发时，自动执行 `mvn -B clean verify`，并把**发行包**、JaCoCo 覆盖率报告与 surefire
+用例报告作为构建产物上传（在 Actions 页面下载）。
+
+跑在 `windows-latest` 上，两个原因缺一不可：`GameControllerTest` / `MainMenuViewTest` 要起
+JavaFX 图形环境（Windows runner 自带桌面会话，免去额外架 Xvfb）；且发行包必须建在目标平台上。
+
 ## 当前实现状态
 
 游戏可完整游玩一局（主菜单 → 战斗 → 通关/阵亡 → 重开或回菜单）。要点：
@@ -68,12 +107,15 @@ plane/
 ├── resource/                                资源文件（图片、音效等；均为第三方素材，见文末声明）
 ├── src/main/java/cn/edu/csu/plane/
 │   ├── PlaneApp.java                        应用入口，装配 model/view/controller 三层
+│   ├── Launcher.java                        fat jar 启动入口，仅转发给 PlaneApp（原因见类注释）
 │   ├── controller/                          主控与帧循环、键盘输入
 │   ├── model/                               游戏规则与状态（零 JavaFX 依赖，可脱离界面单独运行）
 │   ├── util/                                配置读取、难度枚举、素材加载
 │   └── view/                                画布渲染、HUD 与各界面
 ├── src/main/resources/config.properties     全部可调数值
-├── src/test/java/cn/edu/csu/plane/          21 个测试类（model 层零界面依赖，可纯单测）
+├── src/assembly/                            发行包组装描述（dist.xml）与启动脚本（run.bat）
+├── src/test/java/cn/edu/csu/plane/          23 个测试类（model 层零界面依赖，可纯单测）
+├── .github/workflows/build.yml              CI：构建 + 测试 + 出包
 └── docs/                                    需求/设计/测试/答辩文档与图表源文件
 ```
 
